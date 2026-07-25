@@ -53,29 +53,35 @@ FROM `defense-logistics-y42-demo.models.supply_chain_training_data`
 WHERE risk_score IS NOT NULL;
 
 -- Model Evaluation Query
--- SELECT
---   mean_absolute_error,
---   mean_squared_error,
---   r2_score,
---   explained_variance
--- FROM
---   ML.EVALUATE(MODEL `defense-logistics-y42-demo.models.supply_chain_risk_predictor`);
+-- Run this to check model performance after training
+/*
+SELECT
+  mean_absolute_error,
+  mean_squared_error,
+  r2_score,
+  explained_variance
+FROM
+  ML.EVALUATE(MODEL `defense-logistics-y42-demo.models.supply_chain_risk_predictor`);
+*/
 
 -- Sample Prediction Query
--- SELECT
---   *
--- FROM
---   ML.PREDICT(MODEL `defense-logistics-y42-demo.models.supply_chain_risk_predictor`,
---     (
---     SELECT
---       5000000.0 as trade_value_usd,
---       500.0 as quantity,
---       12 as trade_month,
---       2 as trade_day_of_week,
---       CAST(16 AS INT64) as exporter_events,
---       -6.0 as exporter_sentiment,
---       CAST(10 AS INT64) as importer_events,
---       0.5 as importer_sentiment,
---       'DEFENSE_EQUIPMENT' as commodity_category
---     )
---   );
+-- Run this to generate predictions on new data
+/*
+SELECT
+  *
+FROM
+  ML.PREDICT(MODEL `defense-logistics-y42-demo.models.supply_chain_risk_predictor`,
+    (
+    SELECT
+      5000000.0 as trade_value_usd,
+      500.0 as quantity,
+      12 as trade_month,
+      2 as trade_day_of_week,
+      CAST(16 AS INT64) as exporter_events,
+      -6.0 as exporter_sentiment,
+      CAST(10 AS INT64) as importer_events,
+      0.5 as importer_sentiment,
+      'DEFENSE_EQUIPMENT' as commodity_category
+    )
+  );
+*/

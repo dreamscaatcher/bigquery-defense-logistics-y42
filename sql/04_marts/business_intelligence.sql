@@ -3,27 +3,28 @@
 
 -- Country Risk Assessment View
 CREATE OR REPLACE VIEW `defense-logistics-y42-demo.marts.country_risk_assessment` AS
-SELECT 
+SELECT
   c.country_code,
   c.country_name,
   c.region,
-  -- Event-based risk scoring
+  -- Event-based risk scoring (30-day rolling window)
   COUNT(DISTINCT e.event_id) as total_events_30d,
   AVG(e.event_tone) as avg_event_sentiment,
   AVG(e.goldstein_scale) as avg_stability_score,
-  
+
   -- Risk calculation
-  CASE 
+  CASE
     WHEN AVG(e.event_tone) < -3 AND COUNT(e.event_id) > 5 THEN 'HIGH'
     WHEN AVG(e.event_tone) < 0 AND COUNT(e.event_id) > 2 THEN 'MEDIUM'
     ELSE 'LOW'
   END as risk_level,
-  
+
   CURRENT_TIMESTAMP() as calculated_at
-  
+
 FROM `defense-logistics-y42-demo.raw_data.countries` c
 LEFT JOIN `defense-logistics-y42-demo.staging.global_events` e
   ON c.country_code = e.country_code
+  AND e.event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 GROUP BY c.country_code, c.country_name, c.region
 ORDER BY avg_event_sentiment ASC, total_events_30d DESC;
 

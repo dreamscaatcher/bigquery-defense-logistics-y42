@@ -58,14 +58,40 @@ This project ingests country-level trade, event, and sentiment data, transforms 
 
 ### ML Model Performance
 
-- **R² Score:** 0.62 (explains 62% of risk variance)
-- **Mean Absolute Error:** 0.26
-- **Model Type:** Linear regression, multi-feature input
+**Model Type:** BigQuery ML Linear Regression
+
+**Evaluation Instructions:**
+
+The model evaluation queries have been uncommented in `sql/05_ml_models/predictive_analytics.sql`. To obtain verified performance metrics:
+
+1. Set up BigQuery credentials: `gcloud auth login` and `gcloud config set project PROJECT_ID`
+
+2. Run the full pipeline end-to-end:
+
+```bash
+bq query --use_legacy_sql=false < sql/01_setup/create_datasets.sql
+bq query --use_legacy_sql=false < sql/02_raw_data/create_tables.sql
+bq query --use_legacy_sql=false < sql/03_staging/global_events.sql
+bq query --use_legacy_sql=false < sql/04_marts/business_intelligence.sql
+bq query --use_legacy_sql=false < sql/05_ml_models/predictive_analytics.sql
+```
+
+3. Run the evaluation query from `sql/05_ml_models/predictive_analytics.sql` (uncommented in the `ML.EVALUATE` section)
+
+4. Report actual R², MAE, and other metrics below
+
+**Measured Performance** (awaiting evaluation run):
+
+- R² Score: *[Run evaluation query to populate]*
+- Mean Absolute Error: *[Run evaluation query to populate]*
+
+**Previous Claims (UNVERIFIED):**
+
+Earlier runs claimed R²=0.62 and MAE=0.26, but these metrics were not reproducible from code and have been marked as unverified until the evaluation query produces real numbers.
 
 ### Sample Predictions
 
-- High-risk scenario (defense equipment trade, negative sentiment) → Risk Score: 4.18
-- Low-risk scenario (logistics vehicles, positive sentiment) → Risk Score: -2.04
+See `sql/05_ml_models/predictive_analytics.sql` for sample prediction query template. Replace feature values to generate predictions on new trade scenarios.
 
 ## Technical Implementation
 
