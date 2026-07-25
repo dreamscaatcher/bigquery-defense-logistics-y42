@@ -128,6 +128,10 @@ SELECT country_risk + trade_metrics + event_analysis ...
 │   ├── 03_staging/         # Deterministic event generation
 │   ├── 04_marts/           # Business intelligence views
 │   └── 05_ml_models/       # BigQuery ML training + evaluation
+├── neo4j/                  # Supply network graph (depots, routes, requisitions)
+│   ├── 01_schema/          # Constraints and indexes
+│   ├── 02_seed_data/       # Deterministic seed data
+│   └── 03_queries/         # Demand-vs-capacity read queries
 ├── docs/
 │   └── data_dictionary.md  # Schema documentation
 ├── CLAUDE.md               # Project context for Claude Code sessions
@@ -142,10 +146,11 @@ This project grew out of a broader interest in how operational planning and risk
 
 ## Roadmap
 
-This platform is the foundation for a broader **Operations Intelligence Agent**: a LangGraph-based multi-agent layer wrapped in an MCP server, incorporating the supply-network graph work currently living in a separate Neo4j-backed prototype, plus a geospatial map view for logistics risk.
+This platform is the foundation for a broader **Operations Intelligence Agent**: a LangGraph-based multi-agent layer wrapped in an MCP server, plus a geospatial map view for logistics risk.
+
+**Supply network graph (Neo4j) — schema, seed data, and queries built** (2026-07-26). See `neo4j/README.md`: depots, routes, and requisitions modeling resupply demand vs. capacity, reusing the same 8 countries as the BigQuery trade-flow data. No application layer yet — see that README for why.
 
 Near-term:
-- Fold in Neo4j-based supply-network modeling
 - Add a LangGraph multi-agent orchestration layer
 - Wrap the platform in an MCP server
 - Build a geospatial map view for logistics risk

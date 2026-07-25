@@ -199,4 +199,53 @@ clean end to end (or exactly where it didn't), and the commit hash.
   explained_variance=0.5465 — close to the earlier in-sample number
   (0.5365), so no meaningful overfitting. README updated to reflect this
   as the primary metric, with the in-sample number kept as a reference
-  point. **Still pending: commit + push this change.**
+  point.
+- 2026-07-26 — Train/test split committed (`5fe86c2`) and pushed to
+  `origin/main`.
+- 2026-07-26 — Started the Neo4j supply-network graph layer (roadmap item).
+  Scoped deliberately to schema + seed data + queries only, no UI, per
+  explicit confirmation — this repo has no frontend, and the LangGraph/MCP
+  layers still ahead may end up being the actual way this gets exposed.
+  Added `neo4j/` folder: `01_schema/constraints.cypher` (uniqueness
+  constraints + indexes), `02_seed_data/` (depots.cypher, routes.cypher,
+  requisitions.cypher — deterministic, reusing the same 8 countries as
+  BigQuery's trade_flows), `03_queries/demand_vs_capacity.cypher` (4
+  independent read queries: daily/weekly demand vs. capacity per depot,
+  overall utilization summary, route utilization). Verified the Cypher
+  constructs being relied on (`%` modulo, `date.truncate()`, cross-join
+  `UNWIND` patterns) against the live Neo4j instance with harmless
+  read-only queries before writing anything, specifically to avoid
+  repeating the BigQuery `%`-operator mistake from earlier in this
+  project. See `neo4j/README.md` for schema details and setup
+  instructions (needs its own dedicated database, separate from
+  whatever tracks project state).
+- 2026-07-26 — Created `opsintel-supply-network` as a dedicated database
+  in Neo4j Desktop (database names can't use underscores — only ascii,
+  numbers, dots, dashes; learned that the hard way on the first attempt).
+  Ran constraints, then depots, routes, requisitions in order. Verified
+  each step: 3 constraints + 2 indexes online; 8 depots; 56 routes (112
+  relationships, 280 properties — matches 56 x 5); 2,160 requisitions with
+  priority split exactly 1512/432/216 (70/20/10 as designed).
+- 2026-07-26 — Ran the depot utilization summary query — result exposed a
+  real bug: every single depot came back OVER_CAPACITY, because the
+  literal capacity_per_day values chosen for depots (200-500) were picked
+  narratively (bigger depot type = bigger number) without ever checking
+  them against what the requisitions generator actually produces (avg
+  ~493-523/day per depot, peak ~698-794/day). Recalibrated capacities
+  (260-900, scaled by depot tier: large rear-area hubs get the most
+  headroom, forward/smaller nodes intentionally tight) directly in
+  depots.cypher, re-ran it (MERGE means no duplicates, just updates
+  existing 8 nodes). Re-verified: USA (55%/79%) and CHN (65%/92%) land
+  WITHIN_CAPACITY, DEU borderline (72%/102% - fine on average, tips over
+  only on peak days), then JPN/GBR/AUS/FRA/KOR increasingly over capacity
+  with KOR (forward operating base) most strained (189%/268%) - a
+  coherent "forward positions are hardest to supply" result instead of a
+  uniformly broken one.
+- 2026-07-26 — Discovered the connected Neo4j MCP tool (used earlier in
+  this project for the Focus Guardian tracker) can reach the new database
+  directly via a `USE \`opsintel-supply-network\`` clause at the top of a
+  query, routed through the same connection. Used this to verify the
+  route utilization query directly (36-40 requisitions/route, 54-76%
+  utilization, no errors) without another round of manual copy-paste.
+  All 4 queries in demand_vs_capacity.cypher now verified against live
+  data. **Not yet committed/pushed — next step.**

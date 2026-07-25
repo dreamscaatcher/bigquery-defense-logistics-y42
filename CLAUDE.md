@@ -78,22 +78,46 @@ project (for Y42), now being evolved into a portfolio flagship called the
   the held-out 20%. Verified held-out metrics: R²=0.5464, MAE=0.2631,
   MSE=0.1043, explained_variance=0.5465 — close to the earlier in-sample
   number (0.5365), suggesting no meaningful overfitting. README updated.
-  **Not yet committed/pushed** — see pending NextStep.
-- No Neo4j, no LangGraph, no MCP server, no geospatial view exist in this repo
-  yet — those are roadmap items, not built.
+  **Committed and pushed (commit `5fe86c2`)** — live on `origin/main`.
+- **Neo4j supply-network graph added (2026-07-26):** `neo4j/` folder with
+  schema constraints, deterministic seed data, and demand-vs-capacity read
+  queries. Schema: `Depot`/`Route`/`Requisition` nodes, reusing the same 8
+  country codes as the BigQuery trade_flows data. 8 depots, 56 routes (all
+  ordered pairs), ~2,160 requisitions (8 × 90 days × 3/day), all generated
+  deterministically (arithmetic hash on depot index/day offset/req number,
+  no `RAND()`). Verified working: `%` modulo operator, `date.truncate()`,
+  and cross-join `UNWIND` patterns all confirmed against the live Neo4j
+  instance before writing the seed scripts, to avoid repeating the
+  BigQuery `%`-operator mistake. **Deliberately scoped to schema + seed +
+  queries only — no application/UI layer yet** (this repo has no frontend
+  at all currently, and the LangGraph/MCP layers below may end up being
+  how this data gets exposed rather than a hand-built dashboard). See
+  `neo4j/README.md`.
+- **Neo4j graph seeded and verified (2026-07-26):** ran against a dedicated
+  `opsintel-supply-network` database in Neo4j Desktop (separate from
+  whatever tracks project state). Confirmed: 3 constraints + 2 indexes
+  online, 8 depots, 56 routes, 2,160 requisitions (priority split exactly
+  1512/432/216 = 70/20/10 as designed). **Found and fixed a real
+  calibration bug**: the initial depot `capacity_per_day` values (200-500)
+  were all at or below the actual average demand the generator produces
+  (~493-523/day), so every depot came back `OVER_CAPACITY` trivially —
+  the capacities had been chosen narratively without checking them against
+  the demand math. Recalibrated (260-900, scaled by depot tier) to produce
+  a realistic mixed result: USA/CHN `WITHIN_CAPACITY`, DEU borderline
+  (fine on average, peak-day-only overage), JPN/GBR/AUS/FRA/KOR
+  increasingly over capacity, KOR (forward operating base) most strained —
+  a coherent "forward positions are hardest to supply" pattern. Route
+  utilization also verified (54-76%, comfortably within capacity).
+  **Not yet committed/pushed — see pending NextStep.**
+- No LangGraph, no MCP server, no geospatial view exist in this repo yet —
+  those are roadmap items, not built.
 
 ## Roadmap (in priority order)
 
-1. **Next:** commit + push the train/test split change. Then move on to
-   the bigger roadmap items below.
-2. Fold in a Neo4j-based supply-network graph layer. Schema TBD — a
-   demand-vs-capacity "supply planning" component was prototyped in a
-   separate repo (`E-Commerce`) against generic Order/Product nodes; it needs
-   a real defense-logistics schema (e.g. shipment/requisition demand vs.
-   route/depot capacity) before it's reusable here.
-3. Add a LangGraph multi-agent orchestration layer.
-4. Wrap the platform in an MCP server.
-5. Add a geospatial map view for logistics risk.
+1. Commit + push the neo4j/ folder (schema, seed data, queries, README).
+2. Add a LangGraph multi-agent orchestration layer.
+3. Wrap the platform in an MCP server.
+4. Add a geospatial map view for logistics risk.
 
 ## Constraints
 
