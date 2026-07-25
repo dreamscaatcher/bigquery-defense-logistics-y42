@@ -75,11 +75,11 @@ WITH trade_base AS (
     exporter_country,
     importer_country,
     commodity_category,
-    ABS(CAST(FARM_FINGERPRINT(
+    MOD(ABS(CAST(FARM_FINGERPRINT(
       CONCAT(CAST(DATE_SUB(CURRENT_DATE(), INTERVAL day_offset DAY) AS STRING),
              exporter_country, importer_country, commodity_category,
              CAST(ROW_NUMBER() OVER (PARTITION BY day_offset, exporter_country, importer_country ORDER BY commodity_category) AS STRING))
-    ) AS INT64)) % 100 as value_multiplier
+    ) AS INT64)), 100) as value_multiplier
   FROM
     UNNEST(GENERATE_ARRAY(0, 89)) as day_offset,
     UNNEST(['USA', 'GBR', 'DEU', 'FRA', 'JPN', 'CHN', 'KOR', 'AUS']) as exporter_country,

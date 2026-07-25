@@ -53,8 +53,7 @@ FROM `ops-intel-logistics.models.supply_chain_training_data`
 WHERE risk_score IS NOT NULL;
 
 -- Model Evaluation Query
--- Run this to check model performance after training
-/*
+-- Runs as part of the pipeline; prints actual model performance
 SELECT
   mean_absolute_error,
   mean_squared_error,
@@ -62,11 +61,9 @@ SELECT
   explained_variance
 FROM
   ML.EVALUATE(MODEL `ops-intel-logistics.models.supply_chain_risk_predictor`);
-*/
 
 -- Sample Prediction Query
--- Run this to generate predictions on new data
-/*
+-- Runs as part of the pipeline; demonstrates inference on a single example
 SELECT
   *
 FROM
@@ -84,4 +81,3 @@ FROM
       'DEFENSE_EQUIPMENT' as commodity_category
     )
   );
-*/

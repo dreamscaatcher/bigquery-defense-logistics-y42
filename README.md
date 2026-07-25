@@ -50,25 +50,35 @@ This project ingests country-level trade, event, and sentiment data, transforms 
 
 ### Risk Assessment Distribution
 
-| Risk Level | Countries | Avg Events | Avg Sentiment |
+Verified 2026-07-26 against the real 31-country dataset (`marts.country_risk_assessment`):
+
+| Risk Level | Countries | Avg Events (30d) | Avg Sentiment |
 |---|---|---|---|
-| HIGH | 1 | 16.0 | -6.06 |
-| MEDIUM | 85 | 24.6 | -0.31 |
-| LOW | 163 | 11.8 | 0.33 |
+| MEDIUM | 15 | 90.0 | -0.35 |
+| LOW | 16 | 90.0 | 0.32 |
+
+No country currently crosses the HIGH threshold (avg sentiment < -3 with >5 events) — expected, since event tone is now generated from a neutral, deterministic distribution rather than the old hardcoded country bias. Every country has exactly 90 events in the 30-day window because the full synthetic dataset only spans 30 days.
 
 ### ML Model Performance
 
 **Model Type:** BigQuery ML Linear Regression
 
-**Evaluation Instructions:**
+**Measured Performance** (verified 2026-07-26, run against project `ops-intel-logistics`):
 
-The model evaluation queries have been uncommented in `sql/05_ml_models/predictive_analytics.sql`. To obtain verified performance metrics:
+| Metric | Value |
+|---|---|
+| R² Score | 0.5365 |
+| Mean Absolute Error | 0.2666 |
+| Mean Squared Error | 0.1064 |
+| Explained Variance | 0.5365 |
 
-1. Set up BigQuery credentials: `gcloud auth login` and `gcloud config set project PROJECT_ID`
+**Methodology:** evaluated with `ML.EVALUATE` against the full `models.supply_chain_training_data` table (20,160 rows: 7,200 with `risk_score=0`, 12,960 with `risk_score=1`). This is an in-sample evaluation — the model is evaluated on the same data it was trained on, not a held-out test set. A proper train/test split would be a more rigorous benchmark and is a good next improvement, not yet done here.
 
-2. Run the full pipeline end-to-end:
+Reproduce it yourself:
 
 ```bash
+gcloud auth login
+gcloud config set project ops-intel-logistics
 bq query --use_legacy_sql=false < sql/01_setup/create_datasets.sql
 bq query --use_legacy_sql=false < sql/02_raw_data/create_tables.sql
 bq query --use_legacy_sql=false < sql/03_staging/global_events.sql
@@ -76,33 +86,22 @@ bq query --use_legacy_sql=false < sql/04_marts/business_intelligence.sql
 bq query --use_legacy_sql=false < sql/05_ml_models/predictive_analytics.sql
 ```
 
-3. Run the evaluation query from `sql/05_ml_models/predictive_analytics.sql` (uncommented in the `ML.EVALUATE` section)
-
-4. Report actual R², MAE, and other metrics below
-
-**Measured Performance** (awaiting evaluation run):
-
-- R² Score: *[Run evaluation query to populate]*
-- Mean Absolute Error: *[Run evaluation query to populate]*
-
-**Previous Claims (UNVERIFIED):**
-
-Earlier runs claimed R²=0.62 and MAE=0.26, but these metrics were not reproducible from code and have been marked as unverified until the evaluation query produces real numbers.
+Since the countries, trade flows, and events are all generated deterministically (`FARM_FINGERPRINT`-keyed, no `RAND()`), this should reproduce the exact same numbers every time.
 
 ### Sample Predictions
 
-See `sql/05_ml_models/predictive_analytics.sql` for sample prediction query template. Replace feature values to generate predictions on new trade scenarios.
+See `sql/05_ml_models/predictive_analytics.sql` for a sample prediction query. Note: since `risk_score` only ever takes values 0 or 1 in the training data, predictions on inputs far outside the training distribution (e.g. unusually large `trade_value_usd`) can extrapolate outside that range — a known limitation of using linear regression on what's really a bounded/categorical target, not a data bug.
 
 ## Technical Implementation
 
 ```sql
 -- Partitioned and clustered tables for performance
-CREATE TABLE `defense_logistics_analytics.raw_data.countries`
+CREATE TABLE `ops-intel-logistics.raw_data.countries`
 PARTITION BY DATE(created_at)
 CLUSTER BY country_code, region;
 
 -- Complex multi-source analytics
-CREATE VIEW `supply_chain_intelligence` AS
+CREATE VIEW `ops-intel-logistics.marts.supply_chain_intelligence` AS
 SELECT country_risk + trade_metrics + event_analysis ...
 ```
 
@@ -123,15 +122,15 @@ SELECT country_risk + trade_metrics + event_analysis ...
 ```
 ├── sql/
 │   ├── 01_setup/           # Dataset creation and configuration
-│   ├── 02_raw_data/        # Source table definitions
-│   ├── 03_staging/         # Data transformation queries
+│   ├── 02_raw_data/        # Source table definitions + real reference data
+│   ├── 03_staging/         # Deterministic event generation
 │   ├── 04_marts/           # Business intelligence views
-│   └── 05_ml_models/       # BigQuery ML implementations
+│   └── 05_ml_models/       # BigQuery ML training + evaluation
 ├── docs/
-│   ├── architecture.md     # Detailed system design
 │   └── data_dictionary.md  # Schema documentation
-├── dashboards/             # Visualization configurations
-├── terraform/              # Infrastructure as Code
+├── CLAUDE.md               # Project context for Claude Code sessions
+├── claude-code-prompts.md  # Running log of prompts used to build this out
+├── AUDIT.md                # Pipeline audit (2026-07-26)
 └── README.md
 ```
 

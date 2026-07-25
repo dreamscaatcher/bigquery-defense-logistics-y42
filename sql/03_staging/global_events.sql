@@ -21,7 +21,7 @@ CLUSTER BY country_code, event_type;
 
 -- Generate deterministic synthetic events (keyed on country_code and day for reproducibility)
 INSERT INTO `ops-intel-logistics.staging.global_events`
-(event_id, event_date, event_type, country_code, actor1_country, event_tone, goldstein_scale)
+(event_id, event_date, event_type, country_code, actor1_country, actor2_country, event_tone, goldstein_scale, latitude, longitude, source_url, processed_at)
 WITH event_base AS (
   SELECT
     DATE_SUB(CURRENT_DATE(), INTERVAL day_offset DAY) as event_date,
@@ -38,7 +38,7 @@ WITH event_base AS (
 SELECT
   CONCAT('EVT_', country_code, '_', FORMAT_TIMESTAMP('%Y%m%d', TIMESTAMP(event_date)), '_', CAST(event_num AS STRING)) as event_id,
   event_date,
-  CASE (seed % 6)
+  CASE MOD(seed, 6)
     WHEN 0 THEN 'POLITICAL'
     WHEN 1 THEN 'ECONOMIC'
     WHEN 2 THEN 'MILITARY'
@@ -48,14 +48,14 @@ SELECT
   END as event_type,
   country_code,
   country_code as actor1_country,
-  NULL as actor2_country,
+  CAST(NULL AS STRING) as actor2_country,
   -- Neutral distribution: map fingerprint seed to [-6, +6] range for event_tone
-  CAST((((seed % 1200) - 600) / 100.0) AS FLOAT64) as event_tone,
+  CAST(((MOD(seed, 1200) - 600) / 100.0) AS FLOAT64) as event_tone,
   -- Goldstein scale: map to [-8, +8] range
-  CAST((((seed % 1600) - 800) / 100.0) AS FLOAT64) as goldstein_scale,
-  NULL as latitude,
-  NULL as longitude,
-  NULL as source_url,
+  CAST(((MOD(seed, 1600) - 800) / 100.0) AS FLOAT64) as goldstein_scale,
+  CAST(NULL AS FLOAT64) as latitude,
+  CAST(NULL AS FLOAT64) as longitude,
+  CAST(NULL AS STRING) as source_url,
   CURRENT_TIMESTAMP() as processed_at
 FROM event_base
 WHERE country_name IS NOT NULL;
