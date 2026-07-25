@@ -188,4 +188,15 @@ clean end to end (or exactly where it didn't), and the commit hash.
   table. Also cleaned up two other stale README items: a nonexistent
   dashboards/terraform folder listing, and a made-up project ID in the
   technical-implementation SQL example.
-- **Still pending: commit all of the above.**
+- 2026-07-26 — Committed (`8465c7d`) and pushed to `origin/main`. All bug
+  fixes, verified metrics, and corrected risk distribution now live.
+- 2026-07-26 — Added a real train/test split (fixed in this session,
+  applied directly to 05_ml_models/predictive_analytics.sql): deterministic
+  80/20 split keyed on `trade_id` via `MOD(ABS(FARM_FINGERPRINT(trade_id)),
+  100) < 80`, model trained only on the 80% partition
+  (`data_split_method='NO_SPLIT'`), evaluated only on the held-out 20%.
+  Verified held-out metrics: R²=0.5464, MAE=0.2631, MSE=0.1043,
+  explained_variance=0.5465 — close to the earlier in-sample number
+  (0.5365), so no meaningful overfitting. README updated to reflect this
+  as the primary metric, with the in-sample number kept as a reference
+  point. **Still pending: commit + push this change.**

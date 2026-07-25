@@ -68,17 +68,24 @@ project (for Y42), now being evolved into a portfolio flagship called the
 - **Verified risk distribution:** 15 countries MEDIUM, 16 LOW, 0 HIGH (out
   of 31 real countries) — replaces the old fabricated 249-country table
   that was leftover from the original unverified demo.
-- **Still uncommitted as of this writing** — the SQL bug fixes and README
-  updates above need a commit. See pending NextStep in the Focus Guardian
-  tracker.
+- **Committed and pushed (2026-07-26, commit `8465c7d`):** all of the above
+  — SQL bug fixes, real verified metrics, corrected risk distribution,
+  cleaned-up README — is now live on `origin/main`.
+- **Train/test split added (2026-07-26):** `05_ml_models/predictive_analytics.sql`
+  now does a deterministic 80/20 split keyed on `trade_id`
+  (`MOD(ABS(FARM_FINGERPRINT(trade_id)), 100) < 80`), trains only on the
+  80% partition (`data_split_method='NO_SPLIT'`), and evaluates only on
+  the held-out 20%. Verified held-out metrics: R²=0.5464, MAE=0.2631,
+  MSE=0.1043, explained_variance=0.5465 — close to the earlier in-sample
+  number (0.5365), suggesting no meaningful overfitting. README updated.
+  **Not yet committed/pushed** — see pending NextStep.
 - No Neo4j, no LangGraph, no MCP server, no geospatial view exist in this repo
   yet — those are roadmap items, not built.
 
 ## Roadmap (in priority order)
 
-1. **Next:** commit the SQL bug fixes + README updates. Then consider a
-   proper train/test split for the model evaluation (current number is
-   in-sample) as a quick quality improvement before moving on.
+1. **Next:** commit + push the train/test split change. Then move on to
+   the bigger roadmap items below.
 2. Fold in a Neo4j-based supply-network graph layer. Schema TBD — a
    demand-vs-capacity "supply planning" component was prototyped in a
    separate repo (`E-Commerce`) against generic Order/Product nodes; it needs

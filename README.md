@@ -63,16 +63,18 @@ No country currently crosses the HIGH threshold (avg sentiment < -3 with >5 even
 
 **Model Type:** BigQuery ML Linear Regression
 
-**Measured Performance** (verified 2026-07-26, run against project `ops-intel-logistics`):
+**Measured Performance** (verified 2026-07-26, held-out test set, project `ops-intel-logistics`):
 
 | Metric | Value |
 |---|---|
-| R² Score | 0.5365 |
-| Mean Absolute Error | 0.2666 |
-| Mean Squared Error | 0.1064 |
-| Explained Variance | 0.5365 |
+| R² Score | 0.5464 |
+| Mean Absolute Error | 0.2631 |
+| Mean Squared Error | 0.1043 |
+| Explained Variance | 0.5465 |
 
-**Methodology:** evaluated with `ML.EVALUATE` against the full `models.supply_chain_training_data` table (20,160 rows: 7,200 with `risk_score=0`, 12,960 with `risk_score=1`). This is an in-sample evaluation — the model is evaluated on the same data it was trained on, not a held-out test set. A proper train/test split would be a more rigorous benchmark and is a good next improvement, not yet done here.
+**Methodology:** the training data (20,160 rows total) is split deterministically 80/20 into train/test using `MOD(ABS(FARM_FINGERPRINT(trade_id)), 100) < 80` — a hash-based, reproducible split rather than a random one, so re-running the pipeline assigns the exact same rows to train vs. test every time. The model is trained only on the 80% training partition (`data_split_method='NO_SPLIT'` in the model options, since BQML's own auto-split is disabled in favor of this explicit one). `ML.EVALUATE` is run only against the 20% held-out test partition the model never saw during training — a genuine out-of-sample metric, not an in-sample one.
+
+For reference, the earlier in-sample number (evaluating on the same data used for training) was R²=0.5365 — close to the held-out number above, suggesting the model isn't meaningfully overfitting given the current feature set and data size.
 
 Reproduce it yourself:
 
