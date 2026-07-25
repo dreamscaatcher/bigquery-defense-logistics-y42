@@ -2,28 +2,28 @@
 -- Demonstrates Y42-style data orchestration complexity
 
 -- Raw data layer
-CREATE SCHEMA `defense-logistics-y42-demo.raw_data`
+CREATE SCHEMA `ops-intel-logistics.raw_data`
 OPTIONS(
   description="Raw data from external sources",
   location="US"
 );
 
 -- Staging layer  
-CREATE SCHEMA `defense-logistics-y42-demo.staging`
+CREATE SCHEMA `ops-intel-logistics.staging`
 OPTIONS(
   description="Cleaned and normalized data",
   location="US"
 );
 
 -- Data marts layer
-CREATE SCHEMA `defense-logistics-y42-demo.marts`
+CREATE SCHEMA `ops-intel-logistics.marts`
 OPTIONS(
   description="Business-ready analytics tables",
   location="US"
 );
 
 -- ML models
-CREATE SCHEMA `defense-logistics-y42-demo.models`
+CREATE SCHEMA `ops-intel-logistics.models`
 OPTIONS(
   description="Machine learning models and predictions",
   location="US"

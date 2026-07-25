@@ -2,7 +2,7 @@
 -- Deterministic synthetic event generation for reproducibility
 
 -- Global events staging table
-CREATE OR REPLACE TABLE `defense-logistics-y42-demo.staging.global_events` (
+CREATE OR REPLACE TABLE `ops-intel-logistics.staging.global_events` (
   event_id STRING,
   event_date DATE,
   event_type STRING,
@@ -20,7 +20,7 @@ PARTITION BY event_date
 CLUSTER BY country_code, event_type;
 
 -- Generate deterministic synthetic events (keyed on country_code and day for reproducibility)
-INSERT INTO `defense-logistics-y42-demo.staging.global_events`
+INSERT INTO `ops-intel-logistics.staging.global_events`
 (event_id, event_date, event_type, country_code, actor1_country, event_tone, goldstein_scale)
 WITH event_base AS (
   SELECT
@@ -31,7 +31,7 @@ WITH event_base AS (
     -- Use FARM_FINGERPRINT to derive stable pseudo-random values from country_code and date
     ABS(CAST(FARM_FINGERPRINT(CONCAT(c.country_code, CAST(DATE_SUB(CURRENT_DATE(), INTERVAL day_offset DAY) AS STRING), CAST(event_num AS STRING))) AS INT64)) as seed
   FROM
-    `defense-logistics-y42-demo.raw_data.countries` c,
+    `ops-intel-logistics.raw_data.countries` c,
     UNNEST(GENERATE_ARRAY(0, 29)) as day_offset,
     UNNEST(GENERATE_ARRAY(1, 3)) as event_num
 )

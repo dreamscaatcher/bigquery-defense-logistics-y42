@@ -1,7 +1,7 @@
 -- Raw Data Table Definitions
 -- Countries reference table with optimization features
 
-CREATE OR REPLACE TABLE `defense-logistics-y42-demo.raw_data.countries` (
+CREATE OR REPLACE TABLE `ops-intel-logistics.raw_data.countries` (
   country_code STRING,
   country_name STRING,
   region STRING,
@@ -16,7 +16,7 @@ PARTITION BY DATE(created_at)
 CLUSTER BY country_code, region;
 
 -- Load countries reference data
-INSERT INTO `defense-logistics-y42-demo.raw_data.countries`
+INSERT INTO `ops-intel-logistics.raw_data.countries`
 (country_code, country_name, region, sub_region, latitude, longitude, population, gdp_usd, created_at)
 VALUES
   ('USA', 'United States', 'Americas', 'North America', 37.0902, -95.7129, 331900000, 23315080000000, CURRENT_TIMESTAMP()),
@@ -52,7 +52,7 @@ VALUES
   ('NZL', 'New Zealand', 'Oceania', 'Oceania', -40.9006, 174.8860, 5228100, 239290000000, CURRENT_TIMESTAMP());
 
 -- Trade flows table with partitioning and clustering
-CREATE OR REPLACE TABLE `defense-logistics-y42-demo.raw_data.trade_flows` (
+CREATE OR REPLACE TABLE `ops-intel-logistics.raw_data.trade_flows` (
   trade_id STRING,
   trade_date DATE,
   exporter_country STRING,
@@ -67,7 +67,7 @@ PARTITION BY trade_date
 CLUSTER BY exporter_country, importer_country, commodity_category;
 
 -- Load deterministic synthetic trade flows (keyed on trade_date for reproducibility)
-INSERT INTO `defense-logistics-y42-demo.raw_data.trade_flows`
+INSERT INTO `ops-intel-logistics.raw_data.trade_flows`
 (trade_id, trade_date, exporter_country, importer_country, commodity_category, trade_value_usd, quantity, unit_type, created_at)
 WITH trade_base AS (
   SELECT

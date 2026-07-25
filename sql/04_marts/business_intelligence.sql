@@ -2,7 +2,7 @@
 -- Demonstrates complex multi-source analytics that Y42 orchestrates
 
 -- Country Risk Assessment View
-CREATE OR REPLACE VIEW `defense-logistics-y42-demo.marts.country_risk_assessment` AS
+CREATE OR REPLACE VIEW `ops-intel-logistics.marts.country_risk_assessment` AS
 SELECT
   c.country_code,
   c.country_name,
@@ -21,15 +21,15 @@ SELECT
 
   CURRENT_TIMESTAMP() as calculated_at
 
-FROM `defense-logistics-y42-demo.raw_data.countries` c
-LEFT JOIN `defense-logistics-y42-demo.staging.global_events` e
+FROM `ops-intel-logistics.raw_data.countries` c
+LEFT JOIN `ops-intel-logistics.staging.global_events` e
   ON c.country_code = e.country_code
   AND e.event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 GROUP BY c.country_code, c.country_name, c.region
 ORDER BY avg_event_sentiment ASC, total_events_30d DESC;
 
 -- Supply Chain Intelligence View
-CREATE OR REPLACE VIEW `defense-logistics-y42-demo.marts.supply_chain_intelligence` AS
+CREATE OR REPLACE VIEW `ops-intel-logistics.marts.supply_chain_intelligence` AS
 SELECT 
   t.exporter_country,
   exp.country_name as exporter_name,
@@ -53,14 +53,14 @@ SELECT
     ELSE 'LOW_RISK'
   END as supply_chain_risk
 
-FROM `defense-logistics-y42-demo.raw_data.trade_flows` t
-LEFT JOIN `defense-logistics-y42-demo.raw_data.countries` exp 
+FROM `ops-intel-logistics.raw_data.trade_flows` t
+LEFT JOIN `ops-intel-logistics.raw_data.countries` exp 
   ON t.exporter_country = exp.country_code
-LEFT JOIN `defense-logistics-y42-demo.raw_data.countries` imp 
+LEFT JOIN `ops-intel-logistics.raw_data.countries` imp 
   ON t.importer_country = imp.country_code
-LEFT JOIN `defense-logistics-y42-demo.marts.country_risk_assessment` exp_risk
+LEFT JOIN `ops-intel-logistics.marts.country_risk_assessment` exp_risk
   ON t.exporter_country = exp_risk.country_code
-LEFT JOIN `defense-logistics-y42-demo.marts.country_risk_assessment` imp_risk
+LEFT JOIN `ops-intel-logistics.marts.country_risk_assessment` imp_risk
   ON t.importer_country = imp_risk.country_code
 
 GROUP BY t.exporter_country, exp.country_name, t.importer_country, imp.country_name, 

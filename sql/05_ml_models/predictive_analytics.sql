@@ -2,7 +2,7 @@
 -- Demonstrates advanced analytics capabilities that Y42 orchestrates
 
 -- ML Training Data Preparation
-CREATE OR REPLACE TABLE `defense-logistics-y42-demo.models.supply_chain_training_data` AS
+CREATE OR REPLACE TABLE `ops-intel-logistics.models.supply_chain_training_data` AS
 SELECT
   -- Trade features
   t.trade_value_usd,
@@ -26,14 +26,14 @@ SELECT
     ELSE 0
   END as risk_score
 
-FROM `defense-logistics-y42-demo.raw_data.trade_flows` t
-LEFT JOIN `defense-logistics-y42-demo.marts.country_risk_assessment` exp_risk
+FROM `ops-intel-logistics.raw_data.trade_flows` t
+LEFT JOIN `ops-intel-logistics.marts.country_risk_assessment` exp_risk
   ON t.exporter_country = exp_risk.country_code
-LEFT JOIN `defense-logistics-y42-demo.marts.country_risk_assessment` imp_risk
+LEFT JOIN `ops-intel-logistics.marts.country_risk_assessment` imp_risk
   ON t.importer_country = imp_risk.country_code;
 
 -- Supply Chain Risk Predictor Model
-CREATE OR REPLACE MODEL `defense-logistics-y42-demo.models.supply_chain_risk_predictor`
+CREATE OR REPLACE MODEL `ops-intel-logistics.models.supply_chain_risk_predictor`
 OPTIONS(
   model_type='linear_reg',
   input_label_cols=['risk_score']
@@ -49,7 +49,7 @@ SELECT
   importer_sentiment,
   commodity_category,
   risk_score
-FROM `defense-logistics-y42-demo.models.supply_chain_training_data`
+FROM `ops-intel-logistics.models.supply_chain_training_data`
 WHERE risk_score IS NOT NULL;
 
 -- Model Evaluation Query
@@ -61,7 +61,7 @@ SELECT
   r2_score,
   explained_variance
 FROM
-  ML.EVALUATE(MODEL `defense-logistics-y42-demo.models.supply_chain_risk_predictor`);
+  ML.EVALUATE(MODEL `ops-intel-logistics.models.supply_chain_risk_predictor`);
 */
 
 -- Sample Prediction Query
@@ -70,7 +70,7 @@ FROM
 SELECT
   *
 FROM
-  ML.PREDICT(MODEL `defense-logistics-y42-demo.models.supply_chain_risk_predictor`,
+  ML.PREDICT(MODEL `ops-intel-logistics.models.supply_chain_risk_predictor`,
     (
     SELECT
       5000000.0 as trade_value_usd,
