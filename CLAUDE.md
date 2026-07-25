@@ -108,16 +108,20 @@ project (for Y42), now being evolved into a portfolio flagship called the
   increasingly over capacity, KOR (forward operating base) most strained —
   a coherent "forward positions are hardest to supply" pattern. Route
   utilization also verified (54-76%, comfortably within capacity).
-  **Not yet committed/pushed — see pending NextStep.**
+  **Committed and pushed (commit `419bc8a`)** — neo4j/ folder with full schema, seed, and read queries now live on `origin/main`.
+- **Session wrap-up (2026-07-26):** All work completed, committed, pushed, and documented. IMPLEMENTATION.md created as a persistent session tracking log. CLAUDE.md updated with final state.
 - No LangGraph, no MCP server, no geospatial view exist in this repo yet —
   those are roadmap items, not built.
 
 ## Roadmap (in priority order)
 
-1. Commit + push the neo4j/ folder (schema, seed data, queries, README).
-2. Add a LangGraph multi-agent orchestration layer.
-3. Wrap the platform in an MCP server.
-4. Add a geospatial map view for logistics risk.
+1. ✅ **Completed:** BigQuery pipeline (design, implementation, testing, verified metrics)
+2. ✅ **Completed:** Neo4j supply-network graph (schema, seed data, read queries, tested)
+3. **In Progress / Ready to Start:** LangGraph multi-agent orchestration layer (reads both BigQuery and Neo4j for holistic supply-chain risk assessment)
+4. **Pending:** Wrap platform in an MCP server
+5. **Pending:** Add geospatial map view for logistics risk
+6. **Pending (Future):** Real-time event streaming and alerting
+7. **Pending (Future):** API-driven data access with role-based access control
 
 ## Constraints
 
