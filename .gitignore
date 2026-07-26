@@ -1,0 +1,11 @@
+# Secrets - never commit
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local vector index (rebuildable via agent/ingest_docs.py, and large/binary)
+agent/vector_store/
