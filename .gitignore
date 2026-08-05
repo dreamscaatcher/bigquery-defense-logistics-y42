@@ -9,3 +9,7 @@ venv/
 
 # Local vector index (rebuildable via agent/ingest_docs.py, and large/binary)
 agent/vector_store/
+
+# Eval run reports (regenerable via python -m eval.run_evals; commit one
+# manually as evidence if you want a pass-rate snapshot in the repo history)
+eval/results/

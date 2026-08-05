@@ -7,10 +7,11 @@ This document provides comprehensive documentation of all data structures, table
 ## Raw Data Layer
 
 ### countries
+
 Reference table containing country information and metadata.
 
 | Column Name | Data Type | Description | Example |
-|-------------|-----------|-------------|---------|
+| ------------- | ----------- | ------------- | --------- |
 | country_code | STRING | ISO 3-letter country code | 'USA', 'GBR', 'DEU' |
 | country_name | STRING | Full country name | 'United States', 'Germany' |
 | region | STRING | Geographic region | 'Europe', 'Asia', 'Americas' |
@@ -25,10 +26,11 @@ Reference table containing country information and metadata.
 **Clustering**: BY country_code, region
 
 ### trade_flows
+
 Transaction records for defense-related trade between countries.
 
 | Column Name | Data Type | Description | Example |
-|-------------|-----------|-------------|---------|
+| ------------- | ----------- | ------------- | --------- |
 | trade_id | STRING | Unique trade transaction identifier | 'TRADE_001', 'TRADE_002' |
 | trade_date | DATE | Date of trade transaction | 2025-01-15 |
 | exporter_country | STRING | Exporting country code | 'USA' |
@@ -45,10 +47,11 @@ Transaction records for defense-related trade between countries.
 ## Staging Layer
 
 ### global_events
+
 Processed political and economic events data from multiple sources.
 
 | Column Name | Data Type | Description | Range/Example |
-|-------------|-----------|-------------|---------------|
+| ------------- | ----------- | ------------- | --------------- |
 | event_id | STRING | Unique event identifier | 'BBC_tech_001', 'GEN_USA_001' |
 | event_date | DATE | Date when event occurred | 2024-01-01 to 2025-06-30 |
 | event_type | STRING | Category of event | 'POLITICAL', 'ECONOMIC', 'MILITARY' |
@@ -68,10 +71,11 @@ Processed political and economic events data from multiple sources.
 ## Data Marts Layer
 
 ### country_risk_assessment
+
 Business intelligence view providing country-level risk analysis.
 
 | Column Name | Data Type | Description | Calculation Logic |
-|-------------|-----------|-------------|------------------|
+| ------------- | ----------- | ------------- | ------------------ |
 | country_code | STRING | ISO country code | From countries table |
 | country_name | STRING | Country name | From countries table |
 | region | STRING | Geographic region | From countries table |
@@ -82,15 +86,17 @@ Business intelligence view providing country-level risk analysis.
 | calculated_at | TIMESTAMP | Analysis timestamp | CURRENT_TIMESTAMP() |
 
 **Risk Level Logic**:
+
 - HIGH: avg_event_sentiment < -3 AND total_events > 5
 - MEDIUM: avg_event_sentiment < 0 AND total_events > 2
 - LOW: All other cases
 
 ### supply_chain_intelligence
+
 Comprehensive supply chain analysis combining trade and risk data.
 
 | Column Name | Data Type | Description | Source |
-|-------------|-----------|-------------|--------|
+| ------------- | ----------- | ------------- | -------- |
 | exporter_country | STRING | Exporting country code | trade_flows |
 | exporter_name | STRING | Exporting country name | countries |
 | importer_country | STRING | Importing country code | trade_flows |
@@ -106,10 +112,11 @@ Comprehensive supply chain analysis combining trade and risk data.
 ## ML Models Layer
 
 ### supply_chain_training_data
+
 Feature engineering table for machine learning model training.
 
 | Column Name | Data Type | Description | Feature Type |
-|-------------|-----------|-------------|--------------|
+| ------------- | ----------- | ------------- | -------------- |
 | trade_value_usd | FLOAT64 | Transaction value | Numerical |
 | quantity | FLOAT64 | Trade quantity | Numerical |
 | trade_month | INT64 | Month of transaction (1-12) | Numerical |
@@ -122,6 +129,7 @@ Feature engineering table for machine learning model training.
 | risk_score | INT64 | Target variable (0=Low, 1=Medium, 2=High) | Target |
 
 ### supply_chain_risk_predictor
+
 BigQuery ML linear regression model for risk prediction.
 
 **Model Type**: Linear Regression
@@ -132,6 +140,7 @@ BigQuery ML linear regression model for risk prediction.
 ## Data Quality Rules
 
 ### Validation Constraints
+
 - country_code: Must be valid 3-letter ISO code
 - trade_value_usd: Must be positive, < $10B per transaction
 - event_tone: Range -10.0 to +10.0
@@ -139,11 +148,13 @@ BigQuery ML linear regression model for risk prediction.
 - dates: Must be within reasonable historical range
 
 ### Null Handling
+
 - Required fields: country_code, event_id, trade_id
 - Optional fields: latitude, longitude, gdp_usd
 - Default values: event_tone=0.0, goldstein_scale=0.0
 
 ### Data Refresh Patterns
+
 - countries: Weekly updates
 - trade_flows: Daily batch loads
 - global_events: Hourly incremental updates
@@ -152,14 +163,17 @@ BigQuery ML linear regression model for risk prediction.
 ## Performance Optimization
 
 ### Partitioning Strategy
+
 - Time-series data: Partition by date
 - Reference data: No partitioning (small tables)
 
 ### Clustering Strategy
+
 - High-cardinality filters first: country_code
 - Low-cardinality filters second: region, event_type
 
 ### Query Optimization
+
 - Use appropriate WHERE clauses for partition pruning
 - Leverage clustering keys in JOIN conditions
 - Consider materialized views for expensive aggregations

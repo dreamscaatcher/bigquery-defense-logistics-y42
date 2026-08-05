@@ -6,11 +6,13 @@ a SITREP-style briefing. Design rationale: `docs/adr/0001-langgraph-orchestratio
 
 ## Status
 
-Scaffolded, not yet run. This was built in a Cowork session that has no
-access to the live `ops-intel-logistics` BigQuery project or the local
-`opsintel-supply-network` Neo4j database - both live only on Gurinder's
-machine / GCP account. Run and debug it there (Claude Code / local
-terminal), not here.
+**Verified working end-to-end (2026-08-05).** `POST /briefing
+{"country_code": "KOR"}` correctly flagged that KOR's country-level
+risk_level is LOW while DEPOT_KOR (Osan Forward Base) is OVER_CAPACITY
+(189% avg / 268% peak utilization) - the cross-system correlation this
+layer exists to catch. See `CLAUDE.md` for the bugs found/fixed getting
+there (BigQuery ADC auth, `temperature` param, output truncation, a stale
+doc caught by the agent's own grounding).
 
 ## Setup
 
@@ -47,14 +49,38 @@ instructed to flag.
 
 You can also query by depot directly: `{"depot_id": "DEPOT_KOR"}`.
 
+## Evals
+
+```bash
+python -m eval.run_evals
+```
+
+Runs the 10-case labeled set in `eval/cases.py` against the live pipeline:
+the 8 countries with a Neo4j depot (checks the briefing correctly states
+the live risk_level and capacity_status - fetched fresh from BigQuery/Neo4j
+at eval time, not hardcoded), one depot-id-only request, and one country
+with no depot data (checks the agent says so instead of fabricating a
+depot). Each case also gets an LLM-judge faithfulness pass (`eval/judge.py`)
+- a hand-rolled, lighter version of RAGAS-style faithfulness scoring.
+Prints a pass/fail table and writes a JSON report to `eval/results/`.
+
+## Tracing
+
+Set `LANGCHAIN_TRACING_V2=true` and `LANGCHAIN_API_KEY` in `.env` (free
+tier at [smith.langchain.com](https://smith.langchain.com)) - no code
+changes needed, LangChain/LangGraph pick these up automatically. Every
+`/briefing` call and every `python -m eval.run_evals` run will show up as
+a trace in your LangSmith project (`LANGCHAIN_PROJECT`, defaults to
+`ops-intel-agent`), with the full Retriever -> Analyst -> Briefing
+breakdown, tool calls, and token usage per step - useful both for
+debugging and as something to pull up live in an interview.
+
 ## What's not built yet
 
-Per ADR-0001's action items, deliberately deferred as fast-follows once the
-pipeline runs end-to-end at least once:
+Per ADR-0001's action items, still open:
 
-- Evals (labeled expected-briefing set per country/depot)
-- LangSmith or Langfuse tracing
-- Cost-per-run tracking
+- Cost-per-run tracking (LangSmith gives token counts per trace; turning
+  that into a $/run number is still manual)
 - Any auth/rate limiting on the API (fine for a single-user local demo, not
   fine for anything public)
 
@@ -75,4 +101,10 @@ agent/
     retriever.py              deterministic tool-calling node
     analyst.py                 reasons over retrieved bundle, cites numbers
     briefing.py                  formats into Situation/Assessment/Recommendation
+
+eval/
+  cases.py              the 10 labeled test cases
+  ground_truth.py         fetches live expected values via the same tools
+  judge.py                  LLM-as-judge faithfulness check
+  run_evals.py                orchestrates + reports (python -m eval.run_evals)
 ```
