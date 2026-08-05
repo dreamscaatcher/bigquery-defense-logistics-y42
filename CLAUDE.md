@@ -150,6 +150,76 @@ project (for Y42), now being evolved into a portfolio flagship called the
      index rebuilt (`python -m agent.ingest_docs`) after the fix.
   All four fixes committed and pushed.
 
+### Evals + LangSmith tracing (2026-08-05)
+
+- **`eval/` harness added** per ADR-0001's fast-follow action item:
+  `cases.py` (10 labeled cases - the 8 countries with a Neo4j depot, one
+  depot-id-only request, one country with no depot data),
+  `ground_truth.py` (fetches live expected values via the same tool
+  functions the agent uses, not hardcoded numbers), `judge.py` (LLM-as-judge
+  faithfulness check, a hand-rolled RAGAS-style pass), `run_evals.py`
+  (orchestrates, prints pass/fail, writes JSON report to `eval/results/`).
+- **LangSmith tracing wired via env vars only** (`LANGCHAIN_TRACING_V2`,
+  `LANGCHAIN_API_KEY`, `LANGCHAIN_PROJECT` in `.env`) - no code changes,
+  LangChain/LangGraph auto-detect.
+- **First real run: 9/10.** `aus_country` failed on the same Briefing
+  truncation bug as the original KOR case. Fixed: `max_tokens` raised to
+  4096 on both Analyst and Briefing LLM calls, plus a one-time retry with a
+  "be more concise" nudge if the Briefing agent's structured output still
+  fails validation.
+- **Second run: 8/10 - a *new* failure surfaced**, not the same one:
+  1. `jpn_country` crashed: the model returned `sources` as one
+     comma-separated string instead of a JSON list, failing Pydantic
+     validation outright. Fixed with a `field_validator` on
+     `Briefing.sources` that coerces a string into a list defensively, plus
+     a tightened prompt showing the exact expected format.
+  2. `kor_depot_direct` failed the faithfulness judge: the briefing cited
+     "R²≈0.55" for a depot-only request where country risk data (and thus
+     the model performance figure) was never retrieved. Root cause found:
+     the Analyst system prompt's own guardrail example hardcoded
+     `R^2 is 0.5464` as illustrative text, and the model was reciting it as
+     a known fact regardless of what was actually in that call's retrieved
+     bundle. Fixed by rewriting the prompt to only caveat with a
+     performance figure if it's present in the current bundle, and adding
+     an explicit "don't cite things you already know about this project,
+     only what's in front of you now" instruction.
+- **Third run: 10/10, clean.** All fixes committed and pushed (`ea21507`,
+  `4188b6d`).
+
+**Lesson worth keeping in mind:** the eval harness's most valuable catch
+wasn't a crash, it was the faithfulness judge catching the guardrail
+prompt itself leaking a hardcoded fact. Worth remembering when writing
+prompts for this kind of grounded-briefing agent: illustrative examples
+inside a "don't fabricate" instruction can themselves become the
+fabrication source if they contain a real, specific number.
+
+## MCP server (2026-08-05, roadmap item 4)
+
+- **`mcp_server/` added**, wrapping `agent/` for any MCP client (Claude
+  Desktop, MCP Inspector) - not a rewrite, pure glue over
+  `agent.graph.compiled_graph` and `agent.tools.*`. Five tools: the
+  flagship `ops_intel_get_briefing` (full LLM pipeline) plus four narrower
+  read-only passthroughs (`ops_intel_get_country_risk`,
+  `ops_intel_get_depot_capacity`, `ops_intel_get_route_utilization`,
+  `ops_intel_search_methodology`) for when the full synthesis isn't needed.
+  All read-only (`readOnlyHint: true`). See `mcp_server/README.md` for the
+  Claude Desktop config snippet and MCP Inspector testing instructions.
+- **SDK gotcha found while scaffolding (not yet run live - needs Gurinder's
+  local BigQuery/Neo4j creds, same as always):** the current `mcp` PyPI
+  package (verified against 2.0.0) has renamed `FastMCP` to `MCPServer` and
+  moved it from `mcp.server.fastmcp` to `mcp.server.mcpserver`. Most
+  tutorials/guides (including the mcp-builder skill's cached reference)
+  still document the old `mcp.server.fastmcp.FastMCP` path, which does not
+  exist in this installed version - importing it fails outright. Fixed by
+  using `from mcp.server.mcpserver import MCPServer` instead; the rest of
+  the interface (`.tool()` decorator, `.run()`) is unchanged. `requirements.txt`
+  pinned to `mcp>=2.0.0` deliberately, since older 1.x releases use the old
+  import path and would break this code.
+- Scaffolded and import/registration-verified in the Cowork sandbox (all 5
+  tools list correctly with `readOnlyHint=True`) but not yet tested against
+  live BigQuery/Neo4j/Claude, and not yet installed into Claude Desktop -
+  that's the next step, same pattern as `agent/` and `eval/` before it.
+
 ### Lesson learned: git lock files and the Cowork sandbox mount
 
 The Cowork sandbox that mounts this repo **cannot unlink or rename files**
@@ -179,8 +249,8 @@ mystery failure in an unrelated later session.
 
 1. ✅ **Completed:** BigQuery pipeline (design, implementation, testing, verified metrics)
 2. ✅ **Completed:** Neo4j supply-network graph (schema, seed data, read queries, tested)
-3. ✅ **Completed (verified end-to-end 2026-08-05):** LangGraph multi-agent orchestration layer (reads both BigQuery and Neo4j for holistic supply-chain risk assessment) — see above. Not yet: evals, LangSmith/Langfuse tracing, cost tracking (deliberate fast-follows per ADR-0001).
-4. **Pending / Ready to Start:** Wrap platform in an MCP server
+3. ✅ **Completed (verified end-to-end 2026-08-05):** LangGraph multi-agent orchestration layer (reads both BigQuery and Neo4j for holistic supply-chain risk assessment), plus evals (`eval/`, 10/10 passing) and LangSmith tracing — see above. Cost-per-run tracking still open (minor, manual).
+4. **Scaffolded, not yet run live (2026-08-05):** MCP server (`mcp_server/`) wrapping the platform — see above. Next: install into Claude Desktop / test with MCP Inspector.
 5. **Pending:** Add geospatial map view for logistics risk
 6. **Pending (Future):** Real-time event streaming and alerting
 7. **Pending (Future):** API-driven data access with role-based access control

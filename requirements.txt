@@ -22,3 +22,10 @@ python-dotenv>=1.0.1
 
 # Tracing (eval/ + agent/ - see .env.example LANGCHAIN_* vars)
 langsmith>=0.1.147
+
+# MCP server (mcp_server/ - roadmap item 4)
+# Pinned >=2.0.0 deliberately: mcp_server/server.py uses
+# mcp.server.mcpserver.MCPServer, which is what FastMCP was renamed to as
+# of this SDK version. Older 1.x releases used mcp.server.fastmcp.FastMCP
+# instead, which will NOT work with this code - verified against 2.0.0.
+mcp>=2.0.0
