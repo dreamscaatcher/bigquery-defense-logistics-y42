@@ -113,12 +113,74 @@ project (for Y42), now being evolved into a portfolio flagship called the
 - No LangGraph, no MCP server, no geospatial view exist in this repo yet —
   those are roadmap items, not built.
 
+## LangGraph orchestration layer (2026-08-05)
+
+- **ADR-0001** (`docs/adr/0001-langgraph-orchestration-layer.md`) designed a
+  three-agent pipeline (Retriever → Analyst → Briefing) with hybrid
+  retrieval: structured tools against BigQuery/Neo4j + a local Chroma vector
+  store over the repo's own methodology docs, Claude via Anthropic API,
+  FastAPI `POST /briefing` endpoint. Scaffolded as `agent/` (config, state,
+  graph, api, ingest_docs, tools/, agents/), committed `e2684ec` + `610b860`.
+- **Verified working end-to-end (2026-08-05).** `POST /briefing
+  {"country_code": "KOR"}` correctly produced a SITREP flagging that KOR's
+  country-level `risk_level` is LOW while `DEPOT_KOR` (Osan Forward Base) is
+  OVER_CAPACITY (189% avg / 268% peak utilization) — exactly the
+  cross-system correlation this layer was designed to catch, with routes
+  correctly identified as not the bottleneck (depot itself is).
+- **Bugs found and fixed getting there:**
+  1. BigQuery client needs `gcloud auth application-default login`
+     specifically — separate from the `gcloud auth login` used for `bq`/SQL
+     work. Different auth mechanism (ADC vs CLI credentials).
+  2. `temperature=0` on `ChatAnthropic` was rejected outright by the model
+     in use ("temperature is deprecated for this model") — removed from
+     both `agent/agents/analyst.py` and `agent/agents/briefing.py`.
+  3. Briefing agent's structured output (`with_structured_output`) was
+     getting truncated mid-response (missing `assessment`/`recommendation`
+     fields, a stray `</invoke>` tag in the output) — no explicit
+     `max_tokens` had been set. Fixed: `max_tokens=2048` on both LLM calls,
+     plus tightened the Briefing system prompt to ask for concise
+     (2-4 sentence) fields.
+  4. The Briefing agent's own grounding caught a real doc bug: the vector
+     index include `docs/data_dictionary.md`, which still had the old
+     unverified `R² = 0.62, MAE = 0.26` figure (never updated when the real
+     0.5464 number was verified back on 2026-07-26) — while `README.md` had
+     the correct number. Fixed in `docs/data_dictionary.md`; the historical
+     mention in `AUDIT.md` was left as-is since that file is explicitly a
+     historical record of why the old number wasn't reproducible. Vector
+     index rebuilt (`python -m agent.ingest_docs`) after the fix.
+  All four fixes committed and pushed.
+
+### Lesson learned: git lock files and the Cowork sandbox mount
+
+The Cowork sandbox that mounts this repo **cannot unlink or rename files**
+inside `.git/` (Operation not permitted on `rm`/`mv`) even though it can
+create and overwrite them in place. This caused a real problem on
+2026-08-05: an earlier Cowork session hit a stuck `.git/index.lock` after a
+normal commit, worked around it with a manual `git commit-tree` +
+direct-overwrite of `refs/heads/main`, but **left `.git/refs/heads/main.lock`
+behind uncleaned** (couldn't delete it, and didn't flag it clearly enough at
+the time). That stray lock file then sat on disk and later blocked a
+completely unrelated real commit from VS Code/GitLens on Gurinder's actual
+machine, with `cannot lock ref 'HEAD': Unable to create
+.../refs/heads/main.lock: File exists` — cost a debugging detour before the
+actual cause (a leftover file from an earlier Cowork session, not a live
+process) was identified.
+
+**If a Cowork session hits a stuck git lock again:** prefer asking Gurinder
+to delete it via Windows (`Remove-Item .git\<path>.lock -Force`) first —
+native Windows delete succeeds where the sandbox's `rm`/`mv` do not, per
+direct evidence from this incident — rather than doing sandbox-side
+`commit-tree`/ref-surgery workarounds. If a workaround is unavoidable,
+**explicitly name every lock file left behind and its exact path** in the
+same message, so it gets cleaned up immediately instead of surfacing as a
+mystery failure in an unrelated later session.
+
 ## Roadmap (in priority order)
 
 1. ✅ **Completed:** BigQuery pipeline (design, implementation, testing, verified metrics)
 2. ✅ **Completed:** Neo4j supply-network graph (schema, seed data, read queries, tested)
-3. **In Progress / Ready to Start:** LangGraph multi-agent orchestration layer (reads both BigQuery and Neo4j for holistic supply-chain risk assessment)
-4. **Pending:** Wrap platform in an MCP server
+3. ✅ **Completed (verified end-to-end 2026-08-05):** LangGraph multi-agent orchestration layer (reads both BigQuery and Neo4j for holistic supply-chain risk assessment) — see above. Not yet: evals, LangSmith/Langfuse tracing, cost tracking (deliberate fast-follows per ADR-0001).
+4. **Pending / Ready to Start:** Wrap platform in an MCP server
 5. **Pending:** Add geospatial map view for logistics risk
 6. **Pending (Future):** Real-time event streaming and alerting
 7. **Pending (Future):** API-driven data access with role-based access control
