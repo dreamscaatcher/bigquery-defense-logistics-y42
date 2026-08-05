@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Operations Intelligence Agent - Risk Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+  html, body { height: 100%; margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #0f1115; }
+  #map { position: absolute; top: 56px; bottom: 0; left: 0; right: 0; }
+  #header {
+    position: absolute; top: 0; left: 0; right: 0; height: 56px;
+    background: #14171f; color: #e8eaed; display: flex; align-items: center;
+    padding: 0 16px; box-sizing: border-box; z-index: 1000;
+    border-bottom: 1px solid #2a2e38;
+  }
+  #header h1 { font-size: 15px; font-weight: 600; margin: 0 16px 0 0; }
+  #header .sub { font-size: 12px; color: #9aa0ac; }
+  #status { position: absolute; top: 64px; left: 12px; z-index: 999; background: #14171fcc;
+    color: #e8eaed; font-size: 12px; padding: 6px 10px; border-radius: 6px; display: none; }
+  .legend {
+    position: absolute; bottom: 20px; right: 12px; z-index: 999;
+    background: #14171fe6; color: #e8eaed; font-size: 12px; padding: 10px 12px;
+    border-radius: 8px; border: 1px solid #2a2e38; line-height: 1.7;
+  }
+  .legend .row { display: flex; align-items: center; gap: 8px; }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .legend .sq { border-radius: 2px; }
+  .legend h4 { margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase; color: #9aa0ac; letter-spacing: 0.04em; }
+  .legend hr { border: none; border-top: 1px solid #2a2e38; margin: 8px 0; }
+  .popup-title { font-weight: 700; margin-bottom: 4px; }
+  .popup-row { font-size: 12px; margin: 2px 0; }
+  .popup-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; color: #0f1115; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Operations Intelligence Agent</h1>
+  <span class="sub">Country risk (BigQuery) + depot capacity (Neo4j) - roadmap item 5</span>
+</div>
+<div id="status">Loading /map-data ...</div>
+<div id="map"></div>
+
+<div class="legend">
+  <h4>Country risk_level</h4>
+  <div class="row"><span class="swatch" style="background:#e05252"></span> HIGH</div>
+  <div class="row"><span class="swatch" style="background:#e0a352"></span> MEDIUM</div>
+  <div class="row"><span class="swatch" style="background:#4caf6b"></span> LOW</div>
+  <hr>
+  <h4>Depot capacity_status</h4>
+  <div class="row"><span class="swatch sq" style="background:#e05252"></span> OVER_CAPACITY</div>
+  <div class="row"><span class="swatch sq" style="background:#e0a352"></span> NEAR_CAPACITY</div>
+  <div class="row"><span class="swatch sq" style="background:#4c8ce0"></span> WITHIN_CAPACITY</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  const RISK_COLOR = { HIGH: '#e05252', MEDIUM: '#e0a352', LOW: '#4caf6b' };
+  const CAPACITY_COLOR = { OVER_CAPACITY: '#e05252', NEAR_CAPACITY: '#e0a352', WITHIN_CAPACITY: '#4c8ce0' };
+
+  const map = L.map('map', { worldCopyJump: true }).setView([20, 20], 2);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(map);
+
+  function depotIcon(color) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="width:14px;height:14px;background:${color};border:2px solid #0f1115;
+             transform:rotate(45deg);box-shadow:0 0 4px rgba(0,0,0,0.6);"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    });
+  }
+
+  function fmtPct(v) { return (v === null || v === undefined) ? 'n/a' : `${Math.round(v)}%`; }
+  function fmtNum(v) { return (v === null || v === undefined) ? 'n/a' : v; }
+
+  async function loadMap() {
+    const statusEl = document.getElementById('status');
+    statusEl.style.display = 'block';
+    try {
+      const res = await fetch('/map-data');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      statusEl.style.display = 'none';
+
+      (data.countries || []).forEach(c => {
+        const color = RISK_COLOR[c.risk_level] || '#888';
+        L.circleMarker([c.latitude, c.longitude], {
+          radius: 7,
+          color: '#0f1115',
+          weight: 1.5,
+          fillColor: color,
+          fillOpacity: 0.85,
+        }).addTo(map).bindPopup(`
+          <div class="popup-title">${c.country_name} (${c.country_code})</div>
+          <div class="popup-row">risk_level:
+            <span class="popup-badge" style="background:${color}">${c.risk_level}</span>
+          </div>
+          <div class="popup-row">events (30d): ${fmtNum(c.total_events_30d)}</div>
+          <div class="popup-row">avg_event_sentiment: ${fmtNum(c.avg_event_sentiment)}</div>
+        `);
+      });
+
+      (data.depots || []).forEach(d => {
+        const color = CAPACITY_COLOR[d.capacity_status] || '#888';
+        L.marker([d.latitude, d.longitude], { icon: depotIcon(color) })
+          .addTo(map)
+          .bindPopup(`
+            <div class="popup-title">${d.depot_name}</div>
+            <div class="popup-row">${d.depot_id} - ${d.depot_type} - ${d.country_code}</div>
+            <div class="popup-row">capacity_status:
+              <span class="popup-badge" style="background:${color}">${d.capacity_status}</span>
+            </div>
+            <div class="popup-row">capacity: ${fmtNum(d.capacity_per_day)}/day</div>
+            <div class="popup-row">avg utilization: ${fmtPct(d.avg_utilization_pct)}</div>
+            <div class="popup-row">peak utilization: ${fmtPct(d.peak_utilization_pct)}</div>
+          `);
+      });
+
+      if (!data.countries?.length && !data.depots?.length) {
+        statusEl.textContent = 'No data returned - check the API server logs.';
+        statusEl.style.display = 'block';
+      }
+    } catch (err) {
+      statusEl.textContent = `Error loading map data: ${err.message}`;
+      statusEl.style.display = 'block';
+    }
+  }
+
+  loadMap();
+</script>
+</body>
+</html>

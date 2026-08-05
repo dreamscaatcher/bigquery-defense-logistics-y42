@@ -70,3 +70,39 @@ def query_country_risk(country_code: str) -> dict[str, Any]:
         if row.get(key) is not None:
             row[key] = float(row[key])
     return row
+
+
+def query_all_countries_risk() -> list[dict[str, Any]]:
+    """Fetch risk_level + coordinates for every country, for the map view.
+
+    Not a LangChain @tool (no LLM ever needs "all 31 countries" as a single
+    call) - this is a plain data-fetch helper used directly by the
+    GET /map-data endpoint in agent/api.py. Joins
+    marts.country_risk_assessment with raw_data.countries since the mart
+    itself doesn't carry lat/long (see sql/04_marts/business_intelligence.sql).
+
+    Returns a list of dicts: country_code, country_name, latitude,
+    longitude, risk_level, total_events_30d, avg_event_sentiment. Countries
+    with a null lat/long (shouldn't happen given raw_data.countries always
+    sets them, but defensive) are skipped since they can't be plotted.
+    """
+    query = f"""
+        SELECT
+          r.country_code, r.country_name, r.risk_level,
+          r.total_events_30d, r.avg_event_sentiment,
+          c.latitude, c.longitude
+        FROM `{_settings.gcp_project}.{_settings.bq_marts_dataset}.country_risk_assessment` r
+        JOIN `{_settings.gcp_project}.raw_data.countries` c
+          ON r.country_code = c.country_code
+        WHERE c.latitude IS NOT NULL AND c.longitude IS NOT NULL
+    """
+    rows = list(_get_client().query(query).result())
+    results = []
+    for row in rows:
+        entry = dict(row)
+        if entry.get("avg_event_sentiment") is not None:
+            entry["avg_event_sentiment"] = float(entry["avg_event_sentiment"])
+        entry["latitude"] = float(entry["latitude"])
+        entry["longitude"] = float(entry["longitude"])
+        results.append(entry)
+    return results

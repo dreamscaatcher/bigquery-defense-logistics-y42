@@ -63,8 +63,8 @@ when it launches this process isn't guaranteed to be the repo root):
     "ops-intel-agent": {
       "command": "C:\\Users\\dream\\bigquery-defense-logistics-y42\\venv\\Scripts\\python.exe",
       "args": ["-m", "mcp_server.server"],
-      "cwd": "C:\\Users\\dream\\bigquery-defense-logistics-y42",
       "env": {
+        "PYTHONPATH": "C:\\Users\\dream\\bigquery-defense-logistics-y42",
         "ANTHROPIC_API_KEY": "<same value as in .env>",
         "NEO4J_URI": "neo4j://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
@@ -75,6 +75,12 @@ when it launches this process isn't guaranteed to be the repo root):
   }
 }
 ```
+
+**Note (found 2026-08-05):** a `"cwd"` key here is *not* honored by Claude
+Desktop the way you'd expect - it still launched `mcp_server.server` without
+the repo root on `sys.path`, producing `ModuleNotFoundError: No module named
+'mcp_server'`. Use `PYTHONPATH` in the `env` block instead (as above) - that's
+the config that actually worked, confirmed via Claude Desktop's own MCP logs.
 
 `GCP_PROJECT`/`BQ_MARTS_DATASET` don't need to be repeated here - they
 default correctly in `agent/config.py`. BigQuery auth comes from your

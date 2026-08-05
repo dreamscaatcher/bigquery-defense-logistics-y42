@@ -132,3 +132,40 @@ def query_route_utilization(depot_id: str) -> dict[str, Any]:
         "source": "neo4j:opsintel-supply-network (route utilization, 90-day window)",
         "routes": records,
     }
+
+
+_ALL_DEPOTS_QUERY = """
+MATCH (d:Depot)
+OPTIONAL MATCH (q:Requisition)-[:REQUESTED_AT]->(d)
+WITH d, q.request_date AS period, sum(q.quantity) AS daily_quantity
+WITH d, avg(daily_quantity) AS avg_daily_demand, max(daily_quantity) AS peak_daily_demand
+RETURN
+  d.depot_id AS depot_id,
+  d.name AS depot_name,
+  d.depot_type AS depot_type,
+  d.country_code AS country_code,
+  d.latitude AS latitude,
+  d.longitude AS longitude,
+  d.capacity_per_day AS capacity_per_day,
+  round(100.0 * avg_daily_demand / d.capacity_per_day) AS avg_utilization_pct,
+  round(100.0 * peak_daily_demand / d.capacity_per_day) AS peak_utilization_pct,
+  CASE
+    WHEN peak_daily_demand > d.capacity_per_day THEN 'OVER_CAPACITY'
+    WHEN avg_daily_demand > 0.8 * d.capacity_per_day THEN 'NEAR_CAPACITY'
+    ELSE 'WITHIN_CAPACITY'
+  END AS capacity_status
+"""
+
+
+def query_all_depots_capacity() -> list[dict[str, Any]]:
+    """Fetch every depot's location + capacity_status, for the map view.
+
+    Not a LangChain @tool, same reasoning as query_all_countries_risk in
+    bigquery_tools.py - a plain data-fetch helper for GET /map-data.
+    Depots seeded before 2026-08-05 won't have latitude/longitude set (see
+    neo4j/README.md) - those are skipped here since they can't be plotted.
+    """
+    with _get_driver().session(database=_settings.neo4j_database) as session:
+        records = session.run(_ALL_DEPOTS_QUERY).data()
+
+    return [r for r in records if r.get("latitude") is not None and r.get("longitude") is not None]

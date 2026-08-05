@@ -215,10 +215,31 @@ fabrication source if they contain a real, specific number.
   the interface (`.tool()` decorator, `.run()`) is unchanged. `requirements.txt`
   pinned to `mcp>=2.0.0` deliberately, since older 1.x releases use the old
   import path and would break this code.
-- Scaffolded and import/registration-verified in the Cowork sandbox (all 5
-  tools list correctly with `readOnlyHint=True`) but not yet tested against
-  live BigQuery/Neo4j/Claude, and not yet installed into Claude Desktop -
-  that's the next step, same pattern as `agent/` and `eval/` before it.
+- **Verified working end-to-end via MCP Inspector (2026-08-05).**
+  `ops_intel_get_country_risk({"country_code": "KOR"})` returned the correct
+  BigQuery row. `ops_intel_get_briefing({"country_code": "KOR"})` ran the
+  full pipeline through the MCP layer and produced the same quality SITREP
+  as the direct FastAPI endpoint - correctly flagging the KOR
+  LOW-risk/OVER_CAPACITY compounding pattern. Confirms the MCP wrapper adds
+  no regressions versus calling `agent/` directly.
+- **MCP Inspector UI quirk found:** its JSON param editor for object-typed
+  tool inputs (`params: CountryRiskInput` etc.) auto-escapes quote
+  characters as you type, making manual editing produce stray `\`
+  characters. Workaround: select all existing content with a mouse drag
+  (not Ctrl+A - didn't reliably select in this field) and paste
+  (Ctrl+V) the full JSON to overwrite in one shot, rather than typing
+  character by character.
+- **Installed into Claude Desktop and verified live (2026-08-05).** Hit one
+  real gotcha: the `cwd` key in the server config isn't honored by Claude
+  Desktop, so `python -m mcp_server.server` couldn't find the `mcp_server`
+  package (`ModuleNotFoundError: No module named 'mcp_server'` in the MCP
+  log). Fixed by adding `PYTHONPATH` (pointing at the repo root) to the
+  `env` block instead of relying on `cwd`. After that: "Server started and
+  connected successfully." Confirmed working from a completely separate
+  Claude session (Cowork) calling `ops_intel_get_country_risk` live -
+  full-circle proof the server works for any MCP client, not just the one
+  it was configured in. **Roadmap item 4 is now fully done: built, fixed,
+  verified via Inspector, installed, and verified live in Claude Desktop.**
 
 ### Lesson learned: git lock files and the Cowork sandbox mount
 
@@ -244,6 +265,39 @@ direct evidence from this incident — rather than doing sandbox-side
 **explicitly name every lock file left behind and its exact path** in the
 same message, so it gets cleaned up immediately instead of surfacing as a
 mystery failure in an unrelated later session.
+
+## Geospatial map view (2026-08-05, roadmap item 5)
+
+- **Standalone Leaflet page added**, per Gurinder's choice of "standalone
+  page" over embedding in an existing UI (this repo still has no other
+  frontend). `agent/static/map.html` — dark CARTO basemap via CDN, no build
+  tooling. Two layers on one map: country risk (circle markers, colored by
+  `risk_level`) from BigQuery, and depot capacity (diamond markers, colored
+  by `capacity_status`) from Neo4j. Served at `GET /map`; data comes from a
+  new `GET /map-data` endpoint (no LLM call, two direct reads combined).
+- **Real depot coordinates added** to `neo4j/02_seed_data/depots.cypher`
+  (public lat/long for all 8 depot locations — CONUS/Norfolk, Shanghai,
+  Ramstein, Yokosuka, Portsmouth, Darwin, Istres, Osan), via `MERGE`+`SET`
+  so re-running against the already-seeded database updates in place rather
+  than duplicating. `neo4j/README.md` updated with a note that pre-2026-08-05
+  seeds need this script re-run to pick up coordinates.
+- New helper functions (not LangChain `@tool`s — plain data-fetch helpers,
+  since no LLM needs "all countries"/"all depots" as a single call):
+  `query_all_countries_risk()` in `agent/tools/bigquery_tools.py` (joins
+  `marts.country_risk_assessment` to `raw_data.countries` for lat/long),
+  `query_all_depots_capacity()` in `agent/tools/neo4j_tools.py`.
+- Sanity-checked in the Cowork sandbox: `py_compile` clean on all three
+  edited Python files (`agent/api.py`, `agent/tools/bigquery_tools.py`,
+  `agent/tools/neo4j_tools.py`); `map.html` checked for balanced structure,
+  required CDN/script references, and the `/map-data` fetch call. **Not yet
+  run live** — needs Gurinder's local BigQuery/Neo4j creds, same as always.
+- **Docs fixed while here:** `mcp_server/README.md`'s Claude Desktop config
+  snippet still had the `"cwd"` key that was already known (per the MCP
+  server section below) not to work — corrected to the `PYTHONPATH`-in-`env`
+  form that Gurinder actually confirmed working, with an explanatory note so
+  this doesn't get silently reverted later. `agent/README.md` got a new
+  "Map view" section and an updated module map.
+- Not yet done: live test (needs Gurinder to run it locally), commit/push.
 
 ## Roadmap (in priority order)
 
