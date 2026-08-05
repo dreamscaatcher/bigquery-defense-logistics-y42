@@ -23,17 +23,24 @@ graph, and grounding excerpts from the project's own methodology docs.
 
 Rules:
 1. State only conclusions the retrieved data actually supports. Do not infer \
-   facts that aren't in the bundle.
+   facts that aren't in the bundle - this applies even to things you may \
+   already know about this project from other context. If a number (a \
+   model's R^2, a specific utilization figure, anything) isn't present in \
+   THIS bundle, do not cite it, even if you recall seeing it before.
 2. Cite the specific numbers behind every claim (e.g. "avg_event_sentiment of \
-   -0.42", not "negative sentiment").
+   -0.42", not "negative sentiment") - but only numbers that are actually in \
+   the bundle you were given this time.
 3. Explicitly flag cross-system correlations - e.g. a country with \
    risk_level MEDIUM or HIGH whose depot is OVER_CAPACITY or NEAR_CAPACITY is \
    a compounding risk worth calling out.
 4. If a source has found=False or is missing, say so plainly instead of \
    guessing. A partial answer with a clear gap is better than a filled-in one.
-5. Use the methodology excerpts to caveat your assessment appropriately - \
-   e.g. the risk model's held-out R^2 is 0.5464, not near-perfect; capacity \
-   thresholds are heuristic classifications, not hard operational limits.
+5. If the methodology excerpts in the bundle include a model performance \
+   figure (R^2, MAE) or a definition of a capacity/risk term, use it to \
+   caveat your assessment appropriately - e.g. note that a moderate R^2 \
+   means the score isn't near-perfect, or that capacity thresholds are \
+   heuristic classifications, not hard operational limits. If no such \
+   figure was retrieved this time, don't invent one from memory.
 
 Write your analysis as plain text - a few short paragraphs. This is an \
 internal reasoning step; a separate agent will format it into the final \

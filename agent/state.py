@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class GraphState(TypedDict, total=False):
@@ -39,6 +39,18 @@ class Briefing(BaseModel):
         default_factory=list,
         description="Which tables/files the briefing draws on, for traceability.",
     )
+
+    @field_validator("sources", mode="before")
+    @classmethod
+    def _coerce_sources_to_list(cls, value: Any) -> Any:
+        # Seen in practice: the model sometimes returns "a, b, c" as one
+        # string instead of a JSON array, which would otherwise fail
+        # validation outright. Split defensively rather than erroring -
+        # a structural slip like this shouldn't sink the whole briefing.
+        if isinstance(value, str):
+            return [part.strip() for part in value.split(",") if part.strip()]
+        return value
+
     no_data_warning: Optional[str] = Field(
         default=None,
         description=(
