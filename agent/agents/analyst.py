@@ -45,7 +45,7 @@ def analyze(state: GraphState) -> dict:
     llm = ChatAnthropic(
         model=settings.anthropic_model,
         api_key=settings.anthropic_api_key,
-        max_tokens=2048,
+        max_tokens=4096,
     )
 
     retrieved = state.get("retrieved", {})

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import ValidationError
 
 from agent.config import load_settings
 from agent.state import Briefing, GraphState
@@ -26,19 +27,42 @@ Keep every field tight: 2-4 sentences each for situation, assessment, and \
 recommendation. This is a briefing, not a report - be concise so the full \
 response fits comfortably within the output budget."""
 
+_RETRY_NUDGE = """Your previous attempt did not finish - it likely ran too \
+long and got cut off before completing all fields (situation, assessment, \
+recommendation, sources are all required). This time, be noticeably more \
+concise: 1-2 sentences per field, not 2-4. Every field must still be \
+present, even if brief."""
+
+
+def _get_llm(settings):
+    return ChatAnthropic(
+        model=settings.anthropic_model,
+        api_key=settings.anthropic_api_key,
+        max_tokens=4096,
+    ).with_structured_output(Briefing)
+
 
 def brief(state: GraphState) -> dict:
     settings = load_settings()
-    llm = ChatAnthropic(
-        model=settings.anthropic_model,
-        api_key=settings.anthropic_api_key,
-        max_tokens=2048,
-    ).with_structured_output(Briefing)
+    analysis = state.get("analysis", "")
 
     messages = [
         SystemMessage(content=_SYSTEM_PROMPT),
-        HumanMessage(content=f"Analysis:\n{state.get('analysis', '')}"),
+        HumanMessage(content=f"Analysis:\n{analysis}"),
     ]
 
-    result = llm.invoke(messages)
+    try:
+        result = _get_llm(settings).invoke(messages)
+    except ValidationError:
+        # Most likely cause: the model's response got cut off mid-way
+        # (missing required fields) rather than a real data problem. One
+        # retry with an explicit "be shorter" nudge resolves this in
+        # practice - seen in eval runs where one case out of several
+        # verbose ones needed it. If it fails twice, let the error
+        # propagate rather than silently returning a partial briefing.
+        retry_messages = messages + [
+            HumanMessage(content=_RETRY_NUDGE),
+        ]
+        result = _get_llm(settings).invoke(retry_messages)
+
     return {"briefing": result}
