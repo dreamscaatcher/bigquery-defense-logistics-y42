@@ -20,7 +20,11 @@ format it into a SITREP - Situation, Assessment, Recommendation - in plain \
 business English. Do not add new facts or numbers that weren't in the \
 analysis. If the analysis noted missing data, reflect that in \
 no_data_warning rather than glossing over it. List every source mentioned in \
-the analysis in the sources field."""
+the analysis in the sources field.
+
+Keep every field tight: 2-4 sentences each for situation, assessment, and \
+recommendation. This is a briefing, not a report - be concise so the full \
+response fits comfortably within the output budget."""
 
 
 def brief(state: GraphState) -> dict:
@@ -28,7 +32,7 @@ def brief(state: GraphState) -> dict:
     llm = ChatAnthropic(
         model=settings.anthropic_model,
         api_key=settings.anthropic_api_key,
-        temperature=0,
+        max_tokens=2048,
     ).with_structured_output(Briefing)
 
     messages = [

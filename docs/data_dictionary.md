@@ -127,7 +127,7 @@ BigQuery ML linear regression model for risk prediction.
 **Model Type**: Linear Regression
 **Input Features**: All columns except risk_score
 **Target Variable**: risk_score
-**Model Performance**: R² = 0.62, MAE = 0.26
+**Model Performance**: R² = 0.5464, MAE = 0.2631 (held-out 20% test split, verified 2026-07-26 — see README.md "ML Model Performance" for full methodology). An earlier R² = 0.62 / MAE = 0.26 figure was hand-copied from a lost historical run and was never reproducible; see AUDIT.md for that history.
 
 ## Data Quality Rules
 
