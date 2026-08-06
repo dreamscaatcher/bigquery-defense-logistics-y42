@@ -241,6 +241,43 @@ fabrication source if they contain a real, specific number.
   it was configured in. **Roadmap item 4 is now fully done: built, fixed,
   verified via Inspector, installed, and verified live in Claude Desktop.**
 
+### MCP server bug found and fixed: relative CHROMA_PERSIST_DIR breaks under Claude Desktop (2026-08-06)
+
+- **Found via a Cowork status check** (calling the live `ops-intel-agent`
+  MCP tools directly, not just reading code): `ops_intel_get_country_risk`
+  and `ops_intel_get_depot_capacity` worked (BigQuery/Neo4j both live and
+  fresh), but `ops_intel_get_briefing` failed with `AttributeError:
+  'RustBindingsAPI' object has no attribute 'bindings'`, and
+  `ops_intel_search_methodology` failed with `Access is denied (os error
+  5)`.
+- **Root cause:** `agent/config.py`'s `CHROMA_PERSIST_DIR` default was the
+  relative string `"agent/vector_store"`, which resolves against the
+  process's cwd. `agent/ingest_docs.py` had always been run manually from
+  the repo root, so the index built correctly on disk - masking the bug.
+  But the MCP server, launched by Claude Desktop, only has `PYTHONPATH` set
+  (per the 2026-08-05 `cwd`-not-honored note above), not an actual working
+  directory at the repo root. So the relative path resolved elsewhere,
+  chromadb's Rust `Bindings()` constructor failed opening/creating the
+  sqlite file there (Windows error 5, access denied), and left the client
+  half-constructed - which is why the *next* call surfaced as the unrelated
+  -looking `AttributeError` instead of the real cause. `agent/agents/
+  retriever.py` always calls `search_methodology` as part of retrieval, so
+  this took the whole briefing pipeline down with it, not just the
+  standalone search tool.
+- **Why earlier verification missed it:** the 2026-08-05 "verified via MCP
+  Inspector" test of `ops_intel_get_briefing` ran from the repo root
+  (masking the cwd bug); the separate "verified live in Claude Desktop"
+  test that same day only exercised `ops_intel_get_country_risk`, which
+  never touches the vector store. The two verifications together looked
+  like full coverage but had a gap.
+- **Fix:** `agent/config.py` now anchors the default to `Path(__file__)`'s
+  own location instead of cwd, so it resolves correctly regardless of
+  launch directory. `.env.example` and `mcp_server/README.md` updated with
+  notes so this doesn't get silently reintroduced. **Requires restarting
+  Claude Desktop** to pick up the fix in the running MCP server process -
+  not yet re-verified live as of this writing (fix made from Cowork, needs
+  Gurinder to restart Claude Desktop and re-test `ops_intel_get_briefing`).
+
 ### Lesson learned: git lock files and the Cowork sandbox mount
 
 The Cowork sandbox that mounts this repo **cannot unlink or rename files**

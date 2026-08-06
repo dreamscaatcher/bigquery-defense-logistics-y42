@@ -82,6 +82,21 @@ the repo root on `sys.path`, producing `ModuleNotFoundError: No module named
 'mcp_server'`. Use `PYTHONPATH` in the `env` block instead (as above) - that's
 the config that actually worked, confirmed via Claude Desktop's own MCP logs.
 
+**Follow-on gotcha (found 2026-08-06):** the same missing-cwd issue also
+broke `ops_intel_get_briefing` and `ops_intel_search_methodology`, and less
+obviously than the import error above. `CHROMA_PERSIST_DIR` used to default
+to the relative string `agent/vector_store` in `agent/config.py` - fine when
+run manually from the repo root, but under Claude Desktop it resolved
+against whatever directory the process actually launched from, and
+chromadb's Rust bindings failed to open/create the sqlite file there
+(`Access is denied`, Windows error 5). That half-failed construction then
+surfaced on the *next* call as an unrelated-looking
+`AttributeError: 'RustBindingsAPI' object has no attribute 'bindings'`,
+which is what made it hard to trace back to a cwd problem. Fixed by
+anchoring the default to `agent/config.py`'s own file location instead of
+cwd - no config change needed here, but **restart Claude Desktop** after
+pulling this fix so the running MCP server process picks it up.
+
 `GCP_PROJECT`/`BQ_MARTS_DATASET` don't need to be repeated here - they
 default correctly in `agent/config.py`. BigQuery auth comes from your
 machine's `gcloud` ADC credentials, not from this config, so no BigQuery

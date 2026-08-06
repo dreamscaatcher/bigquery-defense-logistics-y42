@@ -11,10 +11,25 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Anchored to this file's location, not the process cwd. CHROMA_PERSIST_DIR
+# used to default to the relative string "agent/vector_store", which only
+# resolved correctly when the process happened to be launched from the repo
+# root (e.g. a manual `python -m agent.ingest_docs` run). The MCP server,
+# launched by Claude Desktop, only gets PYTHONPATH set (not cwd - see the
+# mcp_server/README.md note on that), so the relative path resolved against
+# some other directory entirely. chromadb's Rust bindings then failed to
+# open/create the sqlite file there ("Access is denied", Windows error 5)
+# and left the client half-constructed, which is why the *next* call
+# surfaced as an unrelated-looking AttributeError instead. Anchoring here
+# makes the default correct regardless of launch cwd.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_DEFAULT_CHROMA_DIR = str(_REPO_ROOT / "agent" / "vector_store")
 
 
 def _require(name: str) -> str:
@@ -59,7 +74,7 @@ def load_settings() -> Settings:
         neo4j_password=_require("NEO4J_PASSWORD"),
         neo4j_database=os.environ.get("NEO4J_DATABASE", "opsintel-supply-network"),
         chroma_persist_dir=os.environ.get(
-            "CHROMA_PERSIST_DIR", "agent/vector_store"
+            "CHROMA_PERSIST_DIR", _DEFAULT_CHROMA_DIR
         ),
         embedding_model=os.environ.get(
             "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
