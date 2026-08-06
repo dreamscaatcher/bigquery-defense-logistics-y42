@@ -289,25 +289,60 @@ mystery failure in an unrelated later session.
 - Sanity-checked in the Cowork sandbox: `py_compile` clean on all three
   edited Python files (`agent/api.py`, `agent/tools/bigquery_tools.py`,
   `agent/tools/neo4j_tools.py`); `map.html` checked for balanced structure,
-  required CDN/script references, and the `/map-data` fetch call. **Not yet
-  run live** — needs Gurinder's local BigQuery/Neo4j creds, same as always.
+  required CDN/script references, and the `/map-data` fetch call.
 - **Docs fixed while here:** `mcp_server/README.md`'s Claude Desktop config
   snippet still had the `"cwd"` key that was already known (per the MCP
   server section below) not to work — corrected to the `PYTHONPATH`-in-`env`
   form that Gurinder actually confirmed working, with an explanatory note so
   this doesn't get silently reverted later. `agent/README.md` got a new
   "Map view" section and an updated module map.
-- Not yet done: live test (needs Gurinder to run it locally), commit/push.
+- **Live-verified by Gurinder (2026-08-06)** at `http://localhost:8000/map`
+  — both marker layers render correctly. Committed and pushed as `b5099af`
+  ("Add geospatial map view (roadmap item 5)"). One real hiccup along the
+  way: a Cowork-sandbox commit attempt hit the same stuck-`.git/index.lock`
+  issue documented below, and Gurinder had to manually delete the lock file
+  via PowerShell before his own `git commit`/`git push` would run — consistent
+  with the standing rule to prefer native-OS deletion over sandbox workarounds.
+  **Roadmap item 5 is now fully done: built, documented, live-tested, committed.**
+
+### Case study + reference docs (2026-08-06)
+
+- **`Operations_Intelligence_Agent_Case_Study.pdf`** (repo root, not committed
+  to git — a generated deliverable, not source) — a 15-page, non-technical
+  case study built for job-search use: the project's origin/military-to-data
+  narrative, a plain-language walkthrough of the KOR compounding-risk
+  example, all six build phases with the real bugs hit and how each was
+  fixed (BigQuery `%`-operator/column-mismatch/NULL-type bugs, the Neo4j
+  depot over-capacity calibration bug, the LangGraph truncation/temperature/
+  sources-format bugs, the R²-hallucination-leak eval catch, the MCP SDK
+  rename, the git-lock incident), verified results tables, the roadmap, and
+  a 10-question interview-prep appendix with answers drawn directly from
+  these real incidents. Built as HTML + CSS rendered to PDF via `weasyprint`
+  (installed ad hoc in the Cowork sandbox), verified page-by-page (15 pages,
+  no overflow/cutoff) before handoff.
+- **Full cross-database parameter/column reference produced** (chat-delivered,
+  not a saved file) — every column in `raw_data.countries`, `raw_data.trade_flows`,
+  `staging.global_events`, both `marts.*` views, `models.supply_chain_training_data`,
+  and the `supply_chain_risk_predictor` model's input/output features; plus
+  every property on Neo4j's `Depot`/`Route`/`Requisition` nodes. Sourced
+  directly from the current SQL/Cypher files, not from `AUDIT.md` (which
+  predates the Phase-1 bug fixes and would be stale for this purpose).
 
 ## Roadmap (in priority order)
 
 1. ✅ **Completed:** BigQuery pipeline (design, implementation, testing, verified metrics)
 2. ✅ **Completed:** Neo4j supply-network graph (schema, seed data, read queries, tested)
 3. ✅ **Completed (verified end-to-end 2026-08-05):** LangGraph multi-agent orchestration layer (reads both BigQuery and Neo4j for holistic supply-chain risk assessment), plus evals (`eval/`, 10/10 passing) and LangSmith tracing — see above. Cost-per-run tracking still open (minor, manual).
-4. **Scaffolded, not yet run live (2026-08-05):** MCP server (`mcp_server/`) wrapping the platform — see above. Next: install into Claude Desktop / test with MCP Inspector.
-5. **Pending:** Add geospatial map view for logistics risk
+4. ✅ **Completed (installed + live-verified in Claude Desktop, 2026-08-05):** MCP server (`mcp_server/`) wrapping the platform — see above.
+5. ✅ **Completed (live-verified by Gurinder, 2026-08-06):** Geospatial map view for logistics risk (`agent/static/map.html`, `GET /map`) — see above. Committed as `b5099af`.
 6. **Pending (Future):** Real-time event streaming and alerting
 7. **Pending (Future):** API-driven data access with role-based access control
+
+**All five near-term roadmap items are now complete and verified live.**
+A non-technical case study (PDF) and a full cross-database parameter
+reference were produced 2026-08-06 for job-search use — see the "Case study
++ reference docs" section above. Remaining items (6-7) are explicitly
+longer-term/future, not actively being worked.
 
 ## Constraints
 
