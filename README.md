@@ -1,5 +1,7 @@
 # Defense & Logistics Risk Intelligence Platform
 
+**Live demo:** https://ops-intel-agent-960432556484.europe-west3.run.app/map (geospatial risk/capacity map) · [`/briefing`](https://ops-intel-agent-960432556484.europe-west3.run.app/briefing) (POST, e.g. `{"country_code": "KOR"}`) for the full SITREP agent — see `agent/README.md` for the API and `mcp_server/README.md` for the MCP server. Deployed on GCP Cloud Run; see `CLAUDE.md` for architecture and deployment notes.
+
 A BigQuery-native analytics platform for supply chain and logistics risk assessment, combining multi-source data integration, staged transformation pipelines, and BigQuery ML risk modeling.
 
 ## Overview

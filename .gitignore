@@ -1,5 +1,6 @@
 # Secrets - never commit
 .env
+Neo4j-*-Created-*.txt
 
 # Python
 __pycache__/

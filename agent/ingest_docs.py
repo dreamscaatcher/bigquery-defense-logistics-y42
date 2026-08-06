@@ -9,15 +9,30 @@ always safe to rerun rather than trying to diff/update in place.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import MarkdownTextSplitter
 
-from agent.config import load_settings
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Deliberately NOT using agent.config.load_settings() here: that requires
+# ANTHROPIC_API_KEY and all three NEO4J_* vars to be set (it's an
+# all-or-nothing Settings bag), but building the doc index needs neither -
+# it's pure local text splitting + a local embedding model, no LLM or graph
+# calls. Requiring them anyway would force a Docker image build (which runs
+# this script to build the index at build time - see Dockerfile) to either
+# fail outright or bake dummy secrets into a layer just to satisfy an
+# unrelated dataclass. Read only the two env vars this script actually
+# uses, with the same anchored-to-repo-root default as config.py.
+CHROMA_PERSIST_DIR = os.environ.get(
+    "CHROMA_PERSIST_DIR", str(REPO_ROOT / "agent" / "vector_store")
+)
+EMBEDDING_MODEL = os.environ.get(
+    "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+)
 
 DOC_PATHS = [
     REPO_ROOT / "README.md",
@@ -28,7 +43,6 @@ DOC_PATHS = [
 
 
 def main() -> None:
-    settings = load_settings()
     splitter = MarkdownTextSplitter(chunk_size=800, chunk_overlap=100)
 
     texts: list[str] = []
@@ -47,11 +61,11 @@ def main() -> None:
     if not texts:
         raise SystemExit("No doc content found - check DOC_PATHS.")
 
-    embeddings = HuggingFaceEmbeddings(model_name=settings.embedding_model)
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
     store = Chroma(
         collection_name="opsintel_methodology_docs",
         embedding_function=embeddings,
-        persist_directory=settings.chroma_persist_dir,
+        persist_directory=CHROMA_PERSIST_DIR,
     )
 
     # Rebuild from scratch each run rather than upserting - simplest way to
@@ -61,7 +75,7 @@ def main() -> None:
         store.delete(ids=existing_ids)
 
     store.add_texts(texts=texts, metadatas=metadatas)
-    print(f"indexed {len(texts)} chunks into {settings.chroma_persist_dir}")
+    print(f"indexed {len(texts)} chunks into {CHROMA_PERSIST_DIR}")
 
 
 if __name__ == "__main__":

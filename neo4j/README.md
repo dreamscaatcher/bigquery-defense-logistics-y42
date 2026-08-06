@@ -27,6 +27,8 @@ All seed data is deterministic — generated from arithmetic on depot index / da
 
 ## Setup
 
+### Option A — local Neo4j Desktop (original setup, Enterprise edition)
+
 This should live in its **own Neo4j database**, separate from any other graph (e.g. don't mix this into a database you're using to track unrelated project state). Your Neo4j instance is Enterprise edition, which supports multiple databases in one DBMS:
 
 ```cypher
@@ -41,6 +43,38 @@ Then, against that database (in Neo4j Browser, switch to it with the database dr
 4. `02_seed_data/requisitions.cypher` (depends on 2 and 3 — depots and routes must exist first)
 
 Then the read queries in `03_queries/demand_vs_capacity.cypher` — these are 4 independent queries, run each one separately (they're not a single script).
+
+### Option B — Neo4j AuraDB Free (needed for cloud deployment, added 2026-08-06)
+
+A local Neo4j Desktop instance (`neo4j://localhost:7687`) is not reachable
+from a Cloud Run container, so the deployed app needs a cloud-hosted
+instance. **AuraDB Free is a different tier than Neo4j Desktop** in one
+important way: it's single-database only — there's no `CREATE DATABASE`
+command available (that's an Enterprise/AuraDB-paid feature), you get
+exactly one database per instance. This means:
+
+- Skip the `CREATE DATABASE` step entirely.
+- Run the same four scripts (schema, depots, routes, requisitions) in the
+  same order, directly against the instance's one database — via Aura's
+  built-in Query tab in the console, or Neo4j Browser pointed at the Aura
+  connection URI. Or use Neo4j Desktop's "Select an instance to deploy" /
+  "Deploy to Neo4j Aura" flow to migrate the local database directly
+  instead of re-running scripts by hand — same end result, less manual
+  work.
+- **Don't assume the username or database name is the literal string
+  `neo4j`.** Aura generates a per-instance credentials file on creation
+  (`Neo4j-<instance-id>-Created-<date>.txt`, downloaded once, gitignored)
+  where `NEO4J_USERNAME` and `NEO4J_DATABASE` are both set to the instance
+  ID (e.g. `028e4334`), not `neo4j` — verified 2026-08-06 against a real
+  generated instance. Copy all four values (URI/USERNAME/PASSWORD/
+  DATABASE) directly from that file into `.env` rather than guessing a
+  pattern, then delete the file once copied (it's a second unencrypted
+  copy of the same credentials sitting on disk).
+- The seed data is small (8 depots, 56 routes, ~2,160 requisitions) — well
+  within Aura Free's 200k node / 400k relationship limit.
+- Data is deterministic (same arithmetic-hash generation as Option A), so
+  re-running against Aura produces byte-identical data to the local
+  instance — this isn't a divergent dataset, just a different host.
 
 ## Status
 

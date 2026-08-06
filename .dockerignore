@@ -1,0 +1,30 @@
+# Never bake real secrets into an image layer
+.env
+
+# Dev-only, not needed at runtime
+venv/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+
+# sql/, eval/, mcp_server/ (stdio server, not this HTTP image), and the
+# non-doc dev files aren't needed at runtime. NOTE: do NOT exclude
+# docs/data_dictionary.md, neo4j/README.md, README.md, or AUDIT.md wholesale
+# via their parent dirs - agent/ingest_docs.py reads exactly those four
+# files at image-build time to build the methodology vector index. Only the
+# non-doc contents of those folders are excluded below.
+sql/
+eval/
+mcp_server/
+neo4j/01_schema/
+neo4j/02_seed_data/
+neo4j/03_queries/
+claude-code-prompts.md
+IMPLEMENTATION.md
+Operations_Intelligence_Agent_Case_Study.pdf
+
+# Vector store is rebuilt at image-build time by ingest_docs.py - don't
+# copy a stale local one in
+agent/vector_store/

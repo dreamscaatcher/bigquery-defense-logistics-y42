@@ -102,6 +102,14 @@ default correctly in `agent/config.py`. BigQuery auth comes from your
 machine's `gcloud` ADC credentials, not from this config, so no BigQuery
 key is needed in the `env` block.
 
+**Note (2026-08-06):** the `NEO4J_*` values above point at local Neo4j
+Desktop, which is correct for this Claude Desktop MCP server - it runs on
+the same machine, so `localhost:7687` is reachable. This is different from
+the public Cloud Run deployment (see root `CLAUDE.md`, "public deployment"
+section), which needs AuraDB since Cloud Run can't reach your laptop.
+Don't switch this config to Aura unless you specifically want Claude
+Desktop's MCP tools reading from the cloud instance instead of local.
+
 This config file is local to your machine and never committed - it's fine
 for it to hold real values, unlike `.env.example` in the repo.
 

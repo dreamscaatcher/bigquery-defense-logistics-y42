@@ -403,6 +403,35 @@ mystery failure in an unrelated later session.
   directly from the current SQL/Cypher files, not from `AUDIT.md` (which
   predates the Phase-1 bug fixes and would be stale for this purpose).
 
+## Plan deviation: BI dashboard twin formally descoped (2026-08-06)
+
+The original portfolio plan (`docs/Gurinder_AI_Agent_Portfolio_Plan.md`,
+Project 2 deliverable) called for "expose the same briefing as a Power BI
+or Tableau dashboard alongside the chat interface, so one project visibly
+serves both the AI agent engineer and BI/data analyst audiences." This is
+now **explicitly descoped, not an oversight** — decided 2026-08-06 during a
+Cowork status-check session.
+
+Reasoning: `neo4j/README.md` had already flagged this direction informally
+("no application/UI layer yet... the LangGraph/MCP layers below may end up
+being how this data gets exposed rather than a hand-built dashboard"), and
+by 2026-08-06 that's exactly what happened — the MCP server (5 tools, any
+MCP client), the FastAPI `/briefing` + `/map` endpoints, and the geospatial
+map view together already serve both audiences without a second
+hand-built BI tool duplicating the same country-risk/depot-capacity data.
+Building a separate Power BI/Tableau twin now would be maintaining two
+presentation layers over one dataset for no functional gain — the
+`{query_country_risk, query_depot_capacity}` tool functions are already
+BI-analyst-legible outputs (structured JSON with clear field names,
+documented in `docs/data_dictionary.md`), and a screen-recording of the
+`/map` view plus a walked-through MCP Inspector session covers the "prove
+you can bridge AI-agent and BI-analyst roles" interview need just as well.
+
+If this decision needs revisiting later (e.g. a specific BI-analyst-track
+application explicitly wants to see a Power BI file), it's a small,
+well-scoped addition at that point — not blocking anything else in the
+meantime.
+
 ## Roadmap (in priority order)
 
 1. ✅ **Completed:** BigQuery pipeline (design, implementation, testing, verified metrics)
@@ -418,6 +447,96 @@ A non-technical case study (PDF) and a full cross-database parameter
 reference were produced 2026-08-06 for job-search use — see the "Case study
 + reference docs" section above. Remaining items (6-7) are explicitly
 longer-term/future, not actively being worked.
+
+**In progress (2026-08-06): public deployment.** The plan's own
+non-negotiables (§5, "Deployed, not just cloned locally... every project
+needs a live URL") aren't met yet — everything currently runs on
+`localhost:8000`. Decided to deploy to **GCP Cloud Run** (reuses the
+already-provisioned `ops-intel-logistics` project/auth rather than a new
+platform account). This surfaced a real blocker: Neo4j is currently a
+**local** Neo4j Desktop instance (`neo4j://localhost:7687`), which Cloud
+Run cannot reach. Decided to **migrate to Neo4j AuraDB Free** rather than
+ship a BigQuery-only/depot-data-missing demo. AuraDB Free is single-database
+(no `CREATE DATABASE opsintel-supply-network` like the local Enterprise
+instance) — the migrated instance uses the default `neo4j` database name,
+so `NEO4J_DATABASE` changes from `opsintel-supply-network` to `neo4j` for
+the cloud deployment. `Dockerfile` and `.dockerignore` added in this
+session, targeting Cloud Run specifically (reads `$PORT`, relies on the
+attached service account for BigQuery ADC instead of a baked-in key).
+While building the image spec, found and fixed a second real bug:
+`agent/ingest_docs.py` was calling `agent.config.load_settings()`, which
+requires `ANTHROPIC_API_KEY` and all three `NEO4J_*` vars even though
+building the doc index needs neither — that would have broken the
+Docker build step (which runs `ingest_docs.py` at build time so the
+vector index doesn't need to be built on every cold start). Decoupled:
+`ingest_docs.py` now reads only `CHROMA_PERSIST_DIR`/`EMBEDDING_MODEL`
+directly instead of going through the full Settings dataclass. **Not yet
+deployed** — next steps are the AuraDB migration (Gurinder needs to
+create the instance and re-run the seed scripts against it; the sandbox's
+`mcp__neo4j__*` connector was checked and found to be bound to the
+separate Focus Guardian project-tracking graph, not this project's data,
+so it can't be used for this).
+
+**AuraDB Free instance created and seeded (2026-08-06).** Instance
+`028e4334` (name `opsintel-supply-network`), region as chosen in Aura
+console. One real correction to the plan above: Aura's generated
+credentials file sets `NEO4J_USERNAME` and `NEO4J_DATABASE` to the
+instance ID (`028e4334`), not the literal string `neo4j` as assumed
+earlier — fixed in `.env.example` and `neo4j/README.md`. Migrated via
+Neo4j Desktop's "Deploy to Aura" (export local `opsintel-supply-network`
+→ deploy to the new Aura instance) rather than manually re-running the
+seed scripts — confirmed both steps succeeded in the Desktop UI.
+**Verified directly from Cowork** (installed the `neo4j` Python driver in
+the sandbox and queried the live Aura instance, independent of Gurinder's
+machine): node counts exact match (8 Depot, 56 Route, 2160 Requisition),
+all 3 uniqueness constraints present, `DEPOT_KOR` data byte-identical to
+local including the 2026-08-05 lat/long addition. `.env` updated to point
+at Aura; the downloaded `Neo4j-028e4334-Created-*.txt` credentials file
+is gitignored (`Neo4j-*-Created-*.txt` pattern added) and should be
+deleted from disk now that its values are in `.env`.
+
+**Deployed live to Cloud Run (2026-08-06).** Service `ops-intel-agent`,
+region `europe-west3`, project `ops-intel-logistics`. Public URL:
+**https://ops-intel-agent-960432556484.europe-west3.run.app**
+
+Real issues hit and fixed during the deploy (all from Gurinder's machine,
+`gcloud` not available in the Cowork sandbox):
+1. `gcloud projects add-iam-policy-binding` for the default compute SA
+   failed with "Service account does not exist" — this project had never
+   enabled the Compute Engine API, so that SA was never auto-created.
+   Fixed by not depending on it at all: created a dedicated
+   `ops-intel-agent-sa` service account scoped to just this service
+   (least-privilege, and sidesteps the missing-default-SA issue) with
+   `roles/bigquery.dataViewer` + `roles/bigquery.jobUser`, passed via
+   `gcloud run deploy --service-account`.
+2. First `gcloud run deploy --source .` attempt failed at the build stage:
+   `PERMISSION_DENIED... default service account is missing required IAM
+   permissions` for `960432556484-compute@developer.gserviceaccount.com`
+   reading the uploaded source from GCS. This is a *different* service
+   account concern than #1 - Cloud Build's own build-step identity
+   (Google migrated this to the project's compute default SA, which has
+   zero permissions by default, away from the old broadly-privileged
+   Cloud Build SA). Fixed by granting that account
+   `roles/cloudbuild.builds.builder` at the project level.
+3. Second attempt built and deployed clean.
+
+**Verified live from Cowork** (independent network from Gurinder's
+machine - real proof of public reachability, not just "works on my
+laptop"): `/health` → `{"status":"ok"}`; `/map-data` → real BigQuery rows
+with coordinates for CHN/USA/PHL/IDN/ESP/IND/VNM/MYS/ZAF and more;
+`/briefing` (KOR) → full three-agent SITREP, same quality as every prior
+local verification - correctly flags the MEDIUM-risk/OVER_CAPACITY
+compounding pattern, identifies the depot (not routes) as the bottleneck,
+properly caveats that no risk_score was retrieved for this bundle and
+that R²=0.5464 only explains about half of variance; `/map` → 200,
+`text/html`.
+
+**Public deployment (plan §5 non-negotiable) is now satisfied.** Only
+remaining loose end: `Neo4j-028e4334-Created-*.txt` should be deleted
+from the repo root now that its values are in both `.env` (local) and
+the Cloud Run service's env vars (deployed) - it's gitignored so it was
+never at risk of being committed, but it's still a live plaintext copy
+of working credentials sitting on disk unnecessarily.
 
 ## Constraints
 
