@@ -273,12 +273,50 @@ fabrication source if they contain a real, specific number.
 - **Fix:** `agent/config.py` now anchors the default to `Path(__file__)`'s
   own location instead of cwd, so it resolves correctly regardless of
   launch directory. `.env.example` and `mcp_server/README.md` updated with
-  notes so this doesn't get silently reintroduced. **Requires restarting
-  Claude Desktop** to pick up the fix in the running MCP server process -
-  not yet re-verified live as of this writing (fix made from Cowork, needs
-  Gurinder to restart Claude Desktop and re-test `ops_intel_get_briefing`).
+  notes so this doesn't get silently reintroduced.
+- **Re-verified live (2026-08-06), after Gurinder restarted Claude
+  Desktop:** `ops_intel_get_briefing({"country_code": "KOR"})` ran the
+  full pipeline clean - correctly flagged the MEDIUM-risk/OVER_CAPACITY
+  compounding pattern, identified the depot (not routes) as the
+  bottleneck, and properly caveated that the R²=0.5464 model wasn't
+  applied to this classification. `ops_intel_search_methodology` also
+  confirmed working (real chunks from neo4j/README.md,
+  data_dictionary.md, AUDIT.md). Committed natively by Gurinder as
+  `ad55d07` (sandbox git couldn't commit - see the git lock lesson
+  below, which this incident finally explained).
 
 ### Lesson learned: git lock files and the Cowork sandbox mount
+
+**ROOT CAUSE FOUND (2026-08-06) - read this before running ANY git command
+from a Cowork sandbox in this repo:**
+
+The repo is mounted into the Cowork sandbox as a FUSE filesystem
+(`fuseblk`) that can *create* files inside `.git/` but **cannot unlink or
+rename them**. Git's locking protocol is create `index.lock` → write new
+index into it → rename over `index`. The rename/unlink step fails with
+`Operation not permitted` on this mount, so **every index-writing git
+command run from the sandbox leaves a stray `index.lock` behind** - which
+then blocks the next git command (sandbox or native) with `File exists`.
+Crucially, even plain `git status` does this: it opportunistically
+refreshes the index (takes the lock, rewrites, renames). This is why the
+lock kept "mysteriously reappearing" after Gurinder deleted it on
+2026-08-06 - each sandbox `git status`/`git commit` retry was recreating
+it. It also explains the original 2026-08-05 incident below.
+
+**Standing rules for Cowork sessions in this repo:**
+
+1. **Never run `git add`, `git commit`, or any index-writing git command
+   from the sandbox.** Edit files only; Gurinder commits natively
+   (PowerShell/VS Code), where unlink works fine.
+2. **Read-only git (status/log/diff) must set `GIT_OPTIONAL_LOCKS=0`**
+   (or use `git --no-optional-locks`) so `git status` skips the
+   opportunistic index refresh and takes no lock at all. Verified working
+   2026-08-06: status ran clean, no lock created.
+3. If a stray lock or `tmp_obj_*` litter does appear, ask Gurinder to
+   remove it natively (`Remove-Item .git\<path> -Force`) - do not attempt
+   sandbox-side workarounds.
+
+Original incident (2026-08-05), kept for the record:
 
 The Cowork sandbox that mounts this repo **cannot unlink or rename files**
 inside `.git/` (Operation not permitted on `rm`/`mv`) even though it can
